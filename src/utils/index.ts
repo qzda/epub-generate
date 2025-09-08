@@ -3,7 +3,9 @@
  * @param file - 用户上传的文件
  * @returns 异步生成器，每次返回一行文本
  */
-export async function* readFileLines(file: File): AsyncGenerator<string> {
+export async function* readFileLines(
+  file: File
+): AsyncGenerator<string, void, void> {
   const decoder = new TextDecoder();
   const reader = file.stream().getReader();
   let { value, done } = await reader.read();

@@ -13,11 +13,13 @@ export default defineConfig({
     },
   },
   shortcuts: {
+    "border-base": ["border border-gray-300 rounded outline-none px-1"],
+    "shadow-base": ["shadow-sm  dark:shadow-gray-800 outline-none"],
     btn: [
+      "border-base",
+      "shadow-base hover:shadow-lg active:shadow-sm",
       "cursor-pointer",
-      "border rounded",
       "px-4 py-1",
-      "shadow-sm hover:shadow-lg active:shadow-sm dark:shadow-gray-800 outline-none",
       "hover:translate-y--0.5 active:translate-y-0",
       "transition-all",
     ],
