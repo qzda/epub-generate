@@ -74,7 +74,10 @@
     </div>
   </div>
 
-  <div class="flex">
+  <div
+    class="flex-1 overflow-hidden flex"
+    v-if="file"
+  >
     <div class="flex-1">
       <input
         v-model="regexText"
@@ -83,16 +86,14 @@
         id="regex"
       />
     </div>
-    <div class="flex-1">
-      <div
-        class="mb-2"
-        v-if="file"
-      >
+
+    <div class="flex-1 flex flex-col">
+      <div class="mb-2">
         <span class="font-bold bg-gray">{{ file.name }}</span>
         <div class="text-gray">{{ file.size }}byte</div>
       </div>
       <div
-        class="text-sm border-base border-dashed"
+        class="flex-1 text-sm border-base border-dashed overflow-scroll"
         v-if="lines?.length"
       >
         <p v-for="line in lines">{{ line || "&nbsp;" }}</p>
