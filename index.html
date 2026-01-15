@@ -49,14 +49,14 @@
 
       color-scheme: light dark;
 
-      --primary-color: #213547;
-      --primary-color-bg: #ffffff;
+      --foreground: #213547;
+      --background: #ffffff;
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
-        --primary-color: rgba(255, 255, 255, 0.87);
-        --primary-color-bg: #181818;
+        --foreground: rgba(255, 255, 255, 0.87);
+        --background: #181818;
       }
     }
 
@@ -66,8 +66,8 @@
 
     body {
       margin: 0;
-      color: var(--primary-color);
-      background: var(--primary-color-bg);
+      color: var(--foreground);
+      background: var(--background);
     }
 
     #app {
