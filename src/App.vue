@@ -160,7 +160,7 @@
 
     let count = 0;
     for await (const line of fileAsyncGenerator.value) {
-      if (count >= 20) {
+      if (count >= 200) {
         break;
       }
 
@@ -238,115 +238,109 @@
       zip.file(
         "META-INF/container.xml",
         `<?xml version="1.0" encoding="UTF-8"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-  <rootfiles>
-    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
-  </rootfiles>
-</container>`
+        <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+          <rootfiles>
+            <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+          </rootfiles>
+        </container>`
       );
 
       // OEBPS/content.opf
       const manifestItems = chapters
         .map(
           (_, i) =>
-            `    <item id="chapter${i}" href="chapter${i}.xhtml" media-type="application/xhtml+xml"/>`
+            `<item id="chapter${i}" href="chapter${i}.xhtml" media-type="application/xhtml+xml"/>`
         )
         .join("\n");
 
       const spineItems = chapters
-        .map((_, i) => `    <itemref idref="chapter${i}"/>`)
+        .map((_, i) => `<itemref idref="chapter${i}"/>`)
         .join("\n");
 
       zip.file(
         "OEBPS/content.opf",
         `<?xml version="1.0" encoding="UTF-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="BookId">
-  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-    <dc:title>${escapeXml(title)}</dc:title>
-    <dc:creator>${escapeXml(author)}</dc:creator>
-    <dc:language>zh</dc:language>
-    <dc:identifier id="BookId">${Date.now()}</dc:identifier>
-  </metadata>
-  <manifest>
-    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-    <item id="style" href="style.css" media-type="text/css"/>
-${manifestItems}
-  </manifest>
-  <spine toc="ncx">
-${spineItems}
-  </spine>
-</package>`
+          <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="BookId">
+            <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+              <dc:title>${escapeXml(title)}</dc:title>
+              <dc:creator>${escapeXml(author)}</dc:creator>
+              <dc:language>zh</dc:language>
+              <dc:identifier id="BookId">${Date.now()}</dc:identifier>
+            </metadata>
+            <manifest>
+              <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+              <item id="style" href="style.css" media-type="text/css"/>
+          ${manifestItems}
+            </manifest>
+            <spine toc="ncx">
+          ${spineItems}
+            </spine>
+          </package>`
       );
 
       // OEBPS/toc.ncx
       const navPoints = chapters
         .map(
           (ch, i) =>
-            `    <navPoint id="chapter${i}" playOrder="${i + 1}">
-      <navLabel>
-        <text>${escapeXml(ch.title)}</text>
-      </navLabel>
-      <content src="chapter${i}.xhtml"/>
-    </navPoint>`
+            `<navPoint id="chapter${i}" playOrder="${i + 1}">
+              <navLabel><text>${escapeXml(ch.title)}</text></navLabel>
+              <content src="chapter${i}.xhtml"/>
+            </navPoint>`
         )
         .join("\n");
 
       zip.file(
         "OEBPS/toc.ncx",
         `<?xml version="1.0" encoding="UTF-8"?>
-<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
-  <head>
-    <meta name="dtb:uid" content="${Date.now()}"/>
-    <meta name="dtb:depth" content="1"/>
-  </head>
-  <docTitle>
-    <text>${escapeXml(title)}</text>
-  </docTitle>
-  <navMap>
-${navPoints}
-  </navMap>
-</ncx>`
+        <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+          <head>
+            <meta name="dtb:uid" content="${Date.now()}"/>
+            <meta name="dtb:depth" content="1"/>
+          </head>
+          <docTitle><text>${escapeXml(title)}</text></docTitle>
+          <navMap>${navPoints}</navMap>
+        </ncx>`
       );
 
       // OEBPS/style.css
       zip.file(
         "OEBPS/style.css",
         `body {
-  font-family: "Noto Serif SC", "SimSun", serif;
-  line-height: 1.8;
-  margin: 2em;
-}
-h1 {
-  text-align: center;
-  font-size: 1.5em;
-  margin: 2em 0 1em 0;
-}
-p {
-  text-indent: 2em;
-  margin: 0.5em 0;
-}`
+          font-family: "Noto Serif SC", "SimSun", serif;
+          line-height: 1.8;
+          margin: 2em;
+        }
+        h1 {
+          text-align: center;
+          font-size: 1.5em;
+          margin: 2em 0 1em 0;
+        }
+        p {
+          text-indent: 2em;
+          margin: 0.5em 0;
+        }`
       );
 
       // 生成各章节 XHTML 文件
       chapters.forEach((ch, i) => {
         const content = ch.content
-          .map((line) => `  <p>${escapeXml(line)}</p>`)
+          .map((line) => `<p>${escapeXml(line)}</p>`)
           .join("\n");
 
         zip.file(
           `OEBPS/chapter${i}.xhtml`,
           `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-  <title>${escapeXml(ch.title)}</title>
-  <link rel="stylesheet" type="text/css" href="style.css"/>
-</head>
-<body>
-  <h1>${escapeXml(ch.title)}</h1>
-${content}
-</body>
-</html>`
+          <!DOCTYPE html>
+          <html xmlns="http://www.w3.org/1999/xhtml">
+          <head>
+            <title>${escapeXml(ch.title)}</title>
+            <link rel="stylesheet" type="text/css" href="style.css"/>
+          </head>
+          <body>
+            <h1>${escapeXml(ch.title)}</h1>
+            ${content}
+          </body>
+          </html>`
         );
       });
 
@@ -385,7 +379,7 @@ ${content}
     <h1 class="text-2xl font-bold text-black dark:text-white">EPUB生成器</h1>
     <div class="text-sm">
       <label
-        class="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600 transition inline-flex items-center gap-2"
+        class="btn bg-blue-500 text-white hover:bg-blue-600 transition inline-flex items-center gap-2"
         for="uploadTextFile"
       >
         <i class="i-carbon:upload" />
@@ -407,7 +401,7 @@ ${content}
     class="space-y-4"
   >
     <!-- 文件信息 -->
-    <div class="p-4 bg-gray-100 dark:bg-gray-800 rounded">
+    <div class="p-4 bg-gray-100 dark:bg-gray-800 border-base">
       <div class="font-bold text-lg mb-2">{{ file.name }}</div>
       <div class="text-sm text-gray-600 dark:text-gray-400">
         文件大小: {{ (file.size / 1024).toFixed(2) }} KB
@@ -425,7 +419,7 @@ ${content}
         </label>
         <input
           v-model="bookTitle"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+          class="w-full px-3 py-2 border-base focus:outline-none focus:border-blue-500"
           type="text"
           id="bookTitle"
           placeholder="请输入书名"
@@ -441,7 +435,7 @@ ${content}
         </label>
         <input
           v-model="bookAuthor"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+          class="w-full px-3 py-2 border-base focus:outline-none focus:border-blue-500"
           type="text"
           id="bookAuthor"
           placeholder="请输入作者"
@@ -458,7 +452,7 @@ ${content}
         <select
           v-model="encoding"
           @change="onEncodingChange"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 dark:bg-[--background]"
+          class="w-full px-3 py-2 border-base focus:outline-none focus:border-blue-500 dark:bg-[--background] cursor-pointer"
           id="encoding"
         >
           <option value="utf-8">UTF-8</option>
@@ -483,7 +477,7 @@ ${content}
       </label>
       <input
         v-model="regexText"
-        class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-mono"
+        class="w-full px-3 py-2 border-base focus:outline-none focus:border-blue-500 font-mono"
         type="text"
         id="regex"
         placeholder="例如: 第*章"
@@ -497,15 +491,15 @@ ${content}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- 文本预览 -->
       <div>
-        <h3 class="text-sm font-medium mb-2">文本预览（前20行）</h3>
+        <h3 class="text-sm font-medium mb-2">文本预览（前200行）</h3>
         <div
-          class="h-96 p-4 text-sm border border-gray-300 border-dashed rounded overflow-auto bg-white dark:bg-gray-900"
+          class="h-96 p-4 text-sm border-base overflow-auto bg-white dark:bg-gray-900"
         >
           <p
             v-for="(line, index) in lines"
             :key="index"
             :class="{
-              'font-bold text-blue-600': matchedChapters.some(
+              'font-bold text-green-500': matchedChapters.some(
                 (ch) => ch.index === index
               ),
             }"
@@ -519,7 +513,7 @@ ${content}
       <div>
         <h3 class="text-sm font-medium mb-2">识别的章节</h3>
         <div
-          class="h-96 p-4 text-sm border border-gray-300 rounded overflow-auto bg-white dark:bg-gray-900"
+          class="h-96 p-4 text-sm border-base overflow-auto bg-white dark:bg-gray-900"
         >
           <div
             v-if="matchedChapters.length === 0"
@@ -545,7 +539,7 @@ ${content}
       <button
         @click="generateEpub"
         :disabled="isGenerating || !regex || matchedChapters.length === 0"
-        class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
+        class="btn bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
       >
         <span v-if="isGenerating">生成中...</span>
         <span v-else>生成 EPUB</span>
