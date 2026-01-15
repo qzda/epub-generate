@@ -226,7 +226,7 @@
       // 生成 EPUB
       const epubContent = chapters.map((ch) => ({
         title: ch.title,
-        data: `<div style="text-indent: 2em; line-height: 1.8;">${ch.content
+        content: `<div style="text-indent: 2em; line-height: 1.8;">${ch.content
           .map((line) => `<p>${escapeHtml(line)}</p>`)
           .join("")}</div>`,
       }));
@@ -235,15 +235,14 @@
         title: bookTitle.value || file.value.name,
         author: bookAuthor.value,
         publisher: "EPUB Generator",
-        content: epubContent,
         css: `
         body { font-family: "Noto Serif SC", serif; }
         p { margin: 0.5em 0; }
       `,
       };
 
-      // epub-gen-memory 直接作为函数调用，返回 Promise<Blob>
-      const blob = await epub(options);
+      // epub-gen-memory 需要两个参数：options 和 content
+      const blob = await epub(options, epubContent);
 
       // 下载文件
       const url = URL.createObjectURL(blob);
