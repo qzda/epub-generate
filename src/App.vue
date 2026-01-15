@@ -1,7 +1,6 @@
 <script setup lang="ts">
   import { computed, ref, watch } from "vue";
-  import { readFileLines } from "./utils";
-  import epub from "epub-gen-memory";
+  import JSZip from "jszip";
 
   interface Chapter {
     title: string;
@@ -10,8 +9,8 @@
 
   const file = ref<File>();
   const lines = ref<string[]>();
-  const fileAsyncGenerator = ref<ReturnType<typeof readFileLines>>();
-  const regexText = ref<string>("^第.+章");
+  const fileAsyncGenerator = ref<AsyncGenerator<string, void, void>>();
+  const regexText = ref<string>();
   const regex = computed(() => {
     if (regexText.value) {
       try {
@@ -142,6 +141,10 @@
 
       // 使用检测到的编码读取文件
       await loadFilePreview(_file, detectedEncoding);
+
+      setTimeout(() => {
+        regexText.value = "第*章";
+      }, 200);
     }
   }
 
@@ -223,32 +226,138 @@
         return;
       }
 
-      // 生成 EPUB
-      const epubContent = chapters.map((ch) => ({
-        title: ch.title,
-        content: `<div style="text-indent: 2em; line-height: 1.8;">${ch.content
-          .map((line) => `<p>${escapeHtml(line)}</p>`)
-          .join("")}</div>`,
-      }));
+      // 使用 JSZip 手动构建 EPUB
+      const zip = new JSZip();
+      const title = bookTitle.value || file.value.name;
+      const author = bookAuthor.value;
 
-      const options = {
-        title: bookTitle.value || file.value.name,
-        author: bookAuthor.value,
-        publisher: "EPUB Generator",
-        css: `
-        body { font-family: "Noto Serif SC", serif; }
-        p { margin: 0.5em 0; }
-      `,
-      };
+      // mimetype 文件必须是第一个且未压缩
+      zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
 
-      // epub-gen-memory 需要两个参数：options 和 content
-      const blob = await epub(options, epubContent);
+      // META-INF/container.xml
+      zip.file(
+        "META-INF/container.xml",
+        `<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`
+      );
+
+      // OEBPS/content.opf
+      const manifestItems = chapters
+        .map(
+          (_, i) =>
+            `    <item id="chapter${i}" href="chapter${i}.xhtml" media-type="application/xhtml+xml"/>`
+        )
+        .join("\n");
+
+      const spineItems = chapters
+        .map((_, i) => `    <itemref idref="chapter${i}"/>`)
+        .join("\n");
+
+      zip.file(
+        "OEBPS/content.opf",
+        `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>${escapeXml(title)}</dc:title>
+    <dc:creator>${escapeXml(author)}</dc:creator>
+    <dc:language>zh</dc:language>
+    <dc:identifier id="BookId">${Date.now()}</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="style" href="style.css" media-type="text/css"/>
+${manifestItems}
+  </manifest>
+  <spine toc="ncx">
+${spineItems}
+  </spine>
+</package>`
+      );
+
+      // OEBPS/toc.ncx
+      const navPoints = chapters
+        .map(
+          (ch, i) =>
+            `    <navPoint id="chapter${i}" playOrder="${i + 1}">
+      <navLabel>
+        <text>${escapeXml(ch.title)}</text>
+      </navLabel>
+      <content src="chapter${i}.xhtml"/>
+    </navPoint>`
+        )
+        .join("\n");
+
+      zip.file(
+        "OEBPS/toc.ncx",
+        `<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="${Date.now()}"/>
+    <meta name="dtb:depth" content="1"/>
+  </head>
+  <docTitle>
+    <text>${escapeXml(title)}</text>
+  </docTitle>
+  <navMap>
+${navPoints}
+  </navMap>
+</ncx>`
+      );
+
+      // OEBPS/style.css
+      zip.file(
+        "OEBPS/style.css",
+        `body {
+  font-family: "Noto Serif SC", "SimSun", serif;
+  line-height: 1.8;
+  margin: 2em;
+}
+h1 {
+  text-align: center;
+  font-size: 1.5em;
+  margin: 2em 0 1em 0;
+}
+p {
+  text-indent: 2em;
+  margin: 0.5em 0;
+}`
+      );
+
+      // 生成各章节 XHTML 文件
+      chapters.forEach((ch, i) => {
+        const content = ch.content
+          .map((line) => `  <p>${escapeXml(line)}</p>`)
+          .join("\n");
+
+        zip.file(
+          `OEBPS/chapter${i}.xhtml`,
+          `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>${escapeXml(ch.title)}</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+<body>
+  <h1>${escapeXml(ch.title)}</h1>
+${content}
+</body>
+</html>`
+        );
+      });
+
+      // 生成 EPUB 文件
+      const blob = await zip.generateAsync({ type: "blob" });
 
       // 下载文件
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${bookTitle.value || file.value.name}.epub`;
+      a.download = `${title}.epub`;
       a.click();
       URL.revokeObjectURL(url);
 
@@ -261,10 +370,13 @@
     }
   }
 
-  function escapeHtml(text: string): string {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
+  function escapeXml(text: string): string {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
   }
 </script>
 
@@ -375,7 +487,7 @@
           class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-mono"
           type="text"
           id="regex"
-          placeholder="例如: ^第.+章"
+          placeholder="例如: 第*章"
         />
         <div class="text-xs text-gray-500 mt-1">
           匹配到 {{ matchedChapters.length }} 个章节

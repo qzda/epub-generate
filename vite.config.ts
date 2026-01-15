@@ -5,4 +5,14 @@ import UnoCSS from "unocss/vite";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), UnoCSS()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vue: ["vue"],
+          jszip: ["jszip"],
+        },
+      },
+    },
+  },
 });
