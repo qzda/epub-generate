@@ -381,196 +381,195 @@ ${content}
 </script>
 
 <template>
-  <div class="p-6">
-    <div class="flex justify-between items-center mb-6">
-      <div class="flex gap-2 items-center">
-        <h1 class="text-2xl font-bold text-black dark:text-white">
-          EPUB 生成器
-        </h1>
-        <a
-          href="https://github.com/qzda/epub-generate"
-          target="_blank"
-        >
-          <i class="i-carbon:logo-github" />
-        </a>
-      </div>
-      <div>
-        <label
-          class="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600 transition inline-flex items-center gap-2"
-          for="uploadTextFile"
-        >
-          <i class="i-carbon:upload" />
-          上传文本文件
-        </label>
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-black dark:text-white">EPUB生成器</h1>
+    <div class="text-sm">
+      <label
+        class="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600 transition inline-flex items-center gap-2"
+        for="uploadTextFile"
+      >
+        <i class="i-carbon:upload" />
+        上传文本文件
+      </label>
 
-        <input
-          class="hidden"
-          type="file"
-          id="uploadTextFile"
-          accept="text/*,.txt"
-          @change="onFileChange"
-        />
+      <input
+        class="hidden"
+        type="file"
+        id="uploadTextFile"
+        accept="text/*,.txt"
+        @change="onFileChange"
+      />
+    </div>
+  </div>
+
+  <div
+    v-if="file"
+    class="space-y-4"
+  >
+    <!-- 文件信息 -->
+    <div class="p-4 bg-gray-100 dark:bg-gray-800 rounded">
+      <div class="font-bold text-lg mb-2">{{ file.name }}</div>
+      <div class="text-sm text-gray-600 dark:text-gray-400">
+        文件大小: {{ (file.size / 1024).toFixed(2) }} KB
       </div>
     </div>
 
-    <div
-      v-if="file"
-      class="space-y-4"
-    >
-      <!-- 文件信息 -->
-      <div class="p-4 bg-gray-100 dark:bg-gray-800 rounded">
-        <div class="font-bold text-lg mb-2">{{ file.name }}</div>
-        <div class="text-sm text-gray-600 dark:text-gray-400">
-          文件大小: {{ (file.size / 1024).toFixed(2) }} KB
-        </div>
-      </div>
-
-      <!-- 配置区域 -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label
-            class="block text-sm font-medium mb-2"
-            for="bookTitle"
-          >
-            书名
-          </label>
-          <input
-            v-model="bookTitle"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-            type="text"
-            id="bookTitle"
-            placeholder="请输入书名"
-          />
-        </div>
-
-        <div>
-          <label
-            class="block text-sm font-medium mb-2"
-            for="bookAuthor"
-          >
-            作者
-          </label>
-          <input
-            v-model="bookAuthor"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-            type="text"
-            id="bookAuthor"
-            placeholder="请输入作者"
-          />
-        </div>
-
-        <div>
-          <label
-            class="block text-sm font-medium mb-2"
-            for="encoding"
-          >
-            文件编码
-          </label>
-          <select
-            v-model="encoding"
-            @change="onEncodingChange"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-            id="encoding"
-          >
-            <option value="utf-8">UTF-8</option>
-            <option value="gbk">GBK/GB2312</option>
-            <option value="big5">Big5 (繁体)</option>
-            <option value="shift-jis">Shift-JIS (日文)</option>
-            <option value="euc-kr">EUC-KR (韩文)</option>
-            <option value="utf-16le">UTF-16 LE</option>
-            <option value="utf-16be">UTF-16 BE</option>
-          </select>
-          <div class="text-xs text-gray-500 mt-1">自动检测: {{ encoding }}</div>
-        </div>
-      </div>
-
-      <!-- 正则表达式 -->
+    <!-- 配置区域 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div>
         <label
           class="block text-sm font-medium mb-2"
-          for="regex"
+          for="bookTitle"
         >
-          章节识别正则表达式
+          书名
         </label>
         <input
-          v-model="regexText"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-mono"
+          v-model="bookTitle"
+          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
           type="text"
-          id="regex"
-          placeholder="例如: 第*章"
+          id="bookTitle"
+          placeholder="请输入书名"
         />
-        <div class="text-xs text-gray-500 mt-1">
-          匹配到 {{ matchedChapters.length }} 个章节
-        </div>
       </div>
 
-      <!-- 预览区域 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- 文本预览 -->
-        <div>
-          <h3 class="text-sm font-medium mb-2">文本预览（前20行）</h3>
-          <div
-            class="h-96 p-4 text-sm border border-gray-300 border-dashed rounded overflow-auto bg-white dark:bg-gray-900"
-          >
-            <p
-              v-for="(line, index) in lines"
-              :key="index"
-              :class="{
-                'font-bold text-blue-600': matchedChapters.some(
-                  (ch) => ch.index === index
-                ),
-              }"
-            >
-              {{ line || "\u00A0" }}
-            </p>
-          </div>
-        </div>
-
-        <!-- 章节列表 -->
-        <div>
-          <h3 class="text-sm font-medium mb-2">识别的章节</h3>
-          <div
-            class="h-96 p-4 text-sm border border-gray-300 rounded overflow-auto bg-white dark:bg-gray-900"
-          >
-            <div
-              v-if="matchedChapters.length === 0"
-              class="text-gray-400 text-center py-8"
-            >
-              未识别到章节
-            </div>
-            <div
-              v-else
-              v-for="(chapter, index) in matchedChapters"
-              :key="index"
-              class="py-2 border-b border-gray-200 dark:border-gray-700"
-            >
-              <span class="text-gray-500 mr-2">{{ index + 1 }}.</span>
-              {{ chapter.title }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 生成按钮 -->
-      <div class="flex justify-center pt-4">
-        <button
-          @click="generateEpub"
-          :disabled="isGenerating || !regex || matchedChapters.length === 0"
-          class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
+      <div>
+        <label
+          class="block text-sm font-medium mb-2"
+          for="bookAuthor"
         >
-          <span v-if="isGenerating">生成中...</span>
-          <span v-else>生成 EPUB</span>
-        </button>
+          作者
+        </label>
+        <input
+          v-model="bookAuthor"
+          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+          type="text"
+          id="bookAuthor"
+          placeholder="请输入作者"
+        />
+      </div>
+
+      <div>
+        <label
+          class="block text-sm font-medium mb-2"
+          for="encoding"
+        >
+          文件编码
+        </label>
+        <select
+          v-model="encoding"
+          @change="onEncodingChange"
+          class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+          id="encoding"
+        >
+          <option value="utf-8">UTF-8</option>
+          <option value="gbk">GBK/GB2312</option>
+          <option value="big5">Big5 (繁体)</option>
+          <option value="shift-jis">Shift-JIS (日文)</option>
+          <option value="euc-kr">EUC-KR (韩文)</option>
+          <option value="utf-16le">UTF-16 LE</option>
+          <option value="utf-16be">UTF-16 BE</option>
+        </select>
+        <div class="text-xs text-gray-500 mt-1">自动检测: {{ encoding }}</div>
       </div>
     </div>
 
-    <!-- 空状态 -->
-    <div
-      v-else
-      class="text-center py-20 text-gray-400"
-    >
-      <i class="i-carbon:document text-6xl mb-4" />
-      <p>请上传文本文件开始</p>
+    <!-- 正则表达式 -->
+    <div>
+      <label
+        class="block text-sm font-medium mb-2"
+        for="regex"
+      >
+        章节识别正则表达式
+      </label>
+      <input
+        v-model="regexText"
+        class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 font-mono"
+        type="text"
+        id="regex"
+        placeholder="例如: 第*章"
+      />
+      <div class="text-xs text-gray-500 mt-1">
+        匹配到 {{ matchedChapters.length }} 个章节
+      </div>
+    </div>
+
+    <!-- 预览区域 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- 文本预览 -->
+      <div>
+        <h3 class="text-sm font-medium mb-2">文本预览（前20行）</h3>
+        <div
+          class="h-96 p-4 text-sm border border-gray-300 border-dashed rounded overflow-auto bg-white dark:bg-gray-900"
+        >
+          <p
+            v-for="(line, index) in lines"
+            :key="index"
+            :class="{
+              'font-bold text-blue-600': matchedChapters.some(
+                (ch) => ch.index === index
+              ),
+            }"
+          >
+            {{ line || "\u00A0" }}
+          </p>
+        </div>
+      </div>
+
+      <!-- 章节列表 -->
+      <div>
+        <h3 class="text-sm font-medium mb-2">识别的章节</h3>
+        <div
+          class="h-96 p-4 text-sm border border-gray-300 rounded overflow-auto bg-white dark:bg-gray-900"
+        >
+          <div
+            v-if="matchedChapters.length === 0"
+            class="text-gray-400 text-center py-8"
+          >
+            未识别到章节
+          </div>
+          <div
+            v-else
+            v-for="(chapter, index) in matchedChapters"
+            :key="index"
+            class="py-2 border-b border-gray-200 dark:border-gray-700"
+          >
+            <span class="text-gray-500 mr-2">{{ index + 1 }}.</span>
+            {{ chapter.title }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 生成按钮 -->
+    <div class="flex justify-center pt-4">
+      <button
+        @click="generateEpub"
+        :disabled="isGenerating || !regex || matchedChapters.length === 0"
+        class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
+      >
+        <span v-if="isGenerating">生成中...</span>
+        <span v-else>生成 EPUB</span>
+      </button>
     </div>
   </div>
+
+  <!-- 空状态 -->
+  <div
+    v-else
+    class="text-center py-20 text-gray-400 flex-1 flex flex-col items-center justify-center"
+  >
+    <i class="i-carbon:document text-6xl mb-4" />
+    <p>请上传文本文件</p>
+  </div>
+
+  <footer class="text-center mt-4">
+    2026-PRESENT &copy;
+    <a
+      href="https://github.com/qzda/epub-generate"
+      target="_blank"
+      class="underline"
+    >
+      qzda<i class="i-carbon:logo-github" />
+    </a>
+  </footer>
 </template>
