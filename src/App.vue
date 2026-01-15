@@ -383,7 +383,17 @@ ${content}
 <template>
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-black dark:text-white">EPUB 生成器</h1>
+      <div class="flex gap-2 items-center">
+        <h1 class="text-2xl font-bold text-black dark:text-white">
+          EPUB 生成器
+        </h1>
+        <a
+          href="https://github.com/qzda/epub-generate"
+          target="_blank"
+        >
+          <i class="i-carbon:logo-github" />
+        </a>
+      </div>
       <div>
         <label
           class="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600 transition inline-flex items-center gap-2"
