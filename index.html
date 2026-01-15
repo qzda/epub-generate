@@ -17,11 +17,6 @@
 
       --primary-color: #213547;
       --primary-color-bg: #ffffff;
-
-      font-synthesis: none;
-      text-rendering: optimizeLegibility;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -31,9 +26,27 @@
       }
     }
 
+    * {
+      box-sizing: border-box;
+    }
+
     body {
+      margin: 0;
       color: var(--primary-color);
       background: var(--primary-color-bg);
+    }
+
+    #app {
+      max-width: 1280px;
+      min-width: 300px;
+      margin: 0 auto;
+      padding: 2rem;
+
+      height: 100vh;
+      overflow: hidden;
+
+      display: flex;
+      flex-direction: column;
     }
   </style>
 </head>
