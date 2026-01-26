@@ -270,10 +270,10 @@
             <manifest>
               <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
               <item id="style" href="style.css" media-type="text/css"/>
-          ${manifestItems}
+              ${manifestItems}
             </manifest>
             <spine toc="ncx">
-          ${spineItems}
+              ${spineItems}
             </spine>
           </package>`
       );
