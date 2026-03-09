@@ -21,6 +21,7 @@
 
   const matchedChapters = ref<{ index: number; title: string }[]>([]);
   const isGenerating = ref(false);
+  const bookType = ref<"book" | "comic">("book");
   const bookName = ref<string>("");
   const bookAuthor = ref<string>("未知作者");
   const encoding = ref<string>();
@@ -44,22 +45,34 @@
     const _file = (e.target as HTMLInputElement).files?.item(0);
 
     if (_file && _file.size < 50 * 1048576) {
+      console.log("上传文件", _file.name);
+
       file.value = _file;
       bookName.value = _file.name.replace(/\.[^/.]+$/, "");
 
-      // 自动检测编码
-      const detectedEncoding = await detectTextFileEncoding(_file);
-      if (detectedEncoding) {
-        encoding.value = detectedEncoding;
-        console.log("检测到的编码:", detectedEncoding);
+      if (_file.name.toLowerCase().endsWith(".txt")) {
+        bookType.value = "book";
 
-        // 使用检测到的编码读取文件
-        await loadFilePreview(_file, detectedEncoding);
+        // 自动检测编码
+        const detectedEncoding = await detectTextFileEncoding(_file);
+        if (detectedEncoding) {
+          encoding.value = detectedEncoding;
+          console.log("检测到的编码:", detectedEncoding);
 
-        setTimeout(() => {
-          regexText.value = "第*章";
-        }, 200);
+          // 使用检测到的编码读取文件
+          await loadFilePreview(_file, detectedEncoding);
+
+          setTimeout(() => {
+            regexText.value = "第*章";
+          }, 200);
+        }
       }
+
+      if (_file.name.toLowerCase().endsWith(".zip")) {
+        bookType.value = "comic";
+      }
+    } else {
+      console.error("onFileChange", _file);
     }
   }
 
@@ -88,16 +101,39 @@
   }
 
   async function generateEpubHandle() {
-    if (!file.value || !regexText.value || !encoding.value) return;
+    if (isGenerating.value || !file.value) {
+      return;
+    }
 
     isGenerating.value = true;
 
-    generateEpub(file.value, regexText.value, encoding.value, bookName.value, {
-      name: bookName.value,
-      author: bookAuthor.value,
-    }).finally(() => {
-      isGenerating.value = false;
-    });
+    if (bookType.value === "book") {
+      if (!regexText.value || !encoding.value) {
+        return;
+      }
+
+      generateEpub(file.value, bookName.value, {
+        type: "book",
+        name: bookAuthor.value,
+        author: bookAuthor.value,
+        option: {
+          regex: regexText.value,
+          encoding: encoding.value,
+        },
+      }).finally(() => {
+        isGenerating.value = false;
+      });
+    }
+
+    if (bookType.value === "comic") {
+      generateEpub(file.value, bookName.value, {
+        type: "comic",
+        name: bookAuthor.value,
+        author: bookAuthor.value,
+      }).finally(() => {
+        isGenerating.value = false;
+      });
+    }
   }
 </script>
 
@@ -109,15 +145,14 @@
         class="btn bg-blue-500 text-white hover:bg-blue-600 transition inline-flex items-center gap-2"
         for="uploadTextFile"
       >
-        <i class="i-carbon:upload" />
-        上传文本文件
+        <i class="i-carbon:upload" /> 上传
       </label>
 
       <input
         class="hidden"
         type="file"
         id="uploadTextFile"
-        accept="text/*,.txt"
+        accept=".txt,.zip"
         @change="onFileChange"
       />
     </div>
@@ -169,7 +204,7 @@
         />
       </div>
 
-      <div>
+      <div v-if="bookType === 'book'">
         <label
           class="block text-sm font-medium mb-2"
           for="encoding"
@@ -194,7 +229,7 @@
     </div>
 
     <!-- 正则表达式 -->
-    <div>
+    <div v-if="bookType === 'book'">
       <label
         class="block text-sm font-medium mb-2"
         for="regex"
@@ -216,7 +251,7 @@
     <!-- 预览区域 -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- 文本预览 -->
-      <div>
+      <div v-if="bookType === 'book'">
         <h3 class="text-sm font-medium mb-2">文本预览（前200行）</h3>
         <div
           class="h-96 p-4 text-sm border-base overflow-auto bg-white dark:bg-gray-900"
@@ -236,7 +271,7 @@
       </div>
 
       <!-- 章节列表 -->
-      <div>
+      <div v-if="bookType === 'book'">
         <h3 class="text-sm font-medium mb-2">识别的章节</h3>
         <div
           class="h-96 p-4 text-sm border-base overflow-auto bg-white dark:bg-gray-900"
@@ -258,13 +293,17 @@
           </div>
         </div>
       </div>
+
+      <div v-if="bookType === 'comic'">
+        <h2>comic preview</h2>
+      </div>
     </div>
 
     <!-- 生成按钮 -->
     <div class="flex justify-center pt-4">
       <button
         @click="generateEpubHandle"
-        :disabled="isGenerating || !regex || matchedChapters.length === 0"
+        :disabled="isGenerating"
         class="btn bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
       >
         <span v-if="isGenerating">生成中...</span>
@@ -279,7 +318,7 @@
     class="text-center py-20 text-gray-400 flex-1 flex flex-col items-center justify-center"
   >
     <i class="i-carbon:document text-6xl mb-4" />
-    <p>请上传文本文件</p>
+    <p>请上传任意文本文件或压缩包</p>
   </div>
 
   <footer class="text-center mt-4">
