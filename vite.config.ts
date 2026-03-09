@@ -10,7 +10,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vue: ["vue"],
-          jszip: ["jszip"],
+          tools: ["jszip", "chardet"],
         },
       },
     },
