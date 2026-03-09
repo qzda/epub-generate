@@ -21,7 +21,7 @@
 
   const matchedChapters = ref<{ index: number; title: string }[]>([]);
   const isGenerating = ref(false);
-  const bookTitle = ref<string>("");
+  const bookName = ref<string>("");
   const bookAuthor = ref<string>("未知作者");
   const encoding = ref<string>();
 
@@ -45,7 +45,7 @@
 
     if (_file && _file.size < 50 * 1048576) {
       file.value = _file;
-      bookTitle.value = _file.name.replace(/\.[^/.]+$/, "");
+      bookName.value = _file.name.replace(/\.[^/.]+$/, "");
 
       // 自动检测编码
       const detectedEncoding = await detectTextFileEncoding(_file);
@@ -92,18 +92,12 @@
 
     isGenerating.value = true;
 
-    await generateEpub(
-      file.value,
-      regexText.value,
-      encoding.value,
-      bookTitle.value,
-      {
-        name: bookTitle.value,
-        author: bookAuthor.value,
-      }
-    );
-
-    isGenerating.value = false;
+    generateEpub(file.value, regexText.value, encoding.value, bookName.value, {
+      name: bookName.value,
+      author: bookAuthor.value,
+    }).finally(() => {
+      isGenerating.value = false;
+    });
   }
 </script>
 
@@ -146,15 +140,15 @@
       <div>
         <label
           class="block text-sm font-medium mb-2"
-          for="bookTitle"
+          for="bookName"
         >
           书名
         </label>
         <input
-          v-model="bookTitle"
+          v-model="bookName"
           class="w-full px-3 py-2 border-base focus:outline-none focus:border-blue-500"
           type="text"
-          id="bookTitle"
+          id="bookName"
           placeholder="请输入书名"
         />
       </div>
