@@ -557,7 +557,7 @@
   </div>
 
   <footer class="text-center mt-4">
-    2026-PRESENT &copy;
+    2025-PRESENT &copy;
     <a
       href="https://github.com/qzda/epub-generate"
       target="_blank"
