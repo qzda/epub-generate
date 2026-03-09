@@ -152,7 +152,7 @@
         class="hidden"
         type="file"
         id="uploadTextFile"
-        accept=".txt,.zip"
+        accept="text/*,.zip"
         @change="onFileChange"
       />
     </div>
