@@ -11,6 +11,36 @@ function escapeXml(text: string): string {
     .replace(/'/g, "&apos;");
 }
 
+function getBaseName(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  return normalized.split("/").pop() || path;
+}
+
+function createNavXhtml(
+  title: string,
+  navItems: Array<{ href: string; label: string }>
+): string {
+  const items = navItems
+    .map((item) => `<li><a href="${item.href}">${escapeXml(item.label)}</a></li>`)
+    .join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+  <title>${escapeXml(title)}</title>
+</head>
+<body>
+  <nav epub:type="toc" id="toc">
+    <h1>${escapeXml(title)}</h1>
+    <ol>
+      ${items}
+    </ol>
+  </nav>
+</body>
+</html>`;
+}
+
 type BookInfoBook = {
   type: "book";
   name: string;
@@ -38,16 +68,32 @@ export async function generateEpub(
     const { encoding, regex } = bookInfo.option;
 
     try {
+      let chapterRegex: RegExp;
+      try {
+        chapterRegex = new RegExp(regex);
+      } catch {
+        alert("章节正则表达式无效，请检查后重试");
+        return;
+      }
+
+      const bookId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}`;
+      const modifiedAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+
       const chapters: Chapter[] = [];
       let currentChapter: Chapter | null = null;
+      let matchedChapterCount = 0;
 
       // 使用当前选择的编码重新创建文件读取器
       const fileReader = readFileLinesWithEncoding(file, encoding);
 
       for await (const line of fileReader) {
-        const match = line.match(regex);
+        const match = line.match(chapterRegex);
 
         if (match) {
+          matchedChapterCount++;
           // 保存上一章
           if (currentChapter && currentChapter.content.length > 0) {
             chapters.push(currentChapter);
@@ -114,6 +160,15 @@ export async function generateEpub(
       const spineItems = chapters
         .map((_, i) => `<itemref idref="chapter${i}"/>`)
         .join("\n");
+      const hasToc = matchedChapterCount > 0;
+      if (!hasToc && chapters.length === 1) {
+        chapters[0].title = "正文";
+      }
+      const tocManifestItems = hasToc
+        ? `
+              <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+              <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`
+        : "";
 
       zip.file(
         "OEBPS/content.opf",
@@ -123,14 +178,15 @@ export async function generateEpub(
               <dc:title>${escapeXml(bookInfo.name)}</dc:title>
               <dc:creator>${escapeXml(bookInfo.author)}</dc:creator>
               <dc:language>zh</dc:language>
-              <dc:identifier id="BookId">${Date.now()}</dc:identifier>
+              <dc:identifier id="BookId">${bookId}</dc:identifier>
+              <meta property="dcterms:modified">${modifiedAt}</meta>
             </metadata>
             <manifest>
-              <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+              ${tocManifestItems}
               <item id="style" href="style.css" media-type="text/css"/>
               ${manifestItems}
             </manifest>
-            <spine toc="ncx">
+            <spine>
               ${spineItems}
             </spine>
           </package>`
@@ -147,18 +203,31 @@ export async function generateEpub(
         )
         .join("\n");
 
-      zip.file(
-        "OEBPS/toc.ncx",
-        `<?xml version="1.0" encoding="UTF-8"?>
-        <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
-          <head>
-            <meta name="dtb:uid" content="${Date.now()}"/>
-            <meta name="dtb:depth" content="1"/>
-          </head>
-          <docTitle><text>${escapeXml(bookInfo.name)}</text></docTitle>
-          <navMap>${navPoints}</navMap>
-        </ncx>`
-      );
+      if (hasToc) {
+        zip.file(
+          "OEBPS/toc.ncx",
+          `<?xml version="1.0" encoding="UTF-8"?>
+          <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+            <head>
+              <meta name="dtb:uid" content="${bookId}"/>
+              <meta name="dtb:depth" content="1"/>
+            </head>
+            <docTitle><text>${escapeXml(bookInfo.name)}</text></docTitle>
+            <navMap>${navPoints}</navMap>
+          </ncx>`
+        );
+
+        zip.file(
+          "OEBPS/nav.xhtml",
+          createNavXhtml(
+            bookInfo.name,
+            chapters.map((ch, i) => ({
+              href: `chapter${i}.xhtml`,
+              label: ch.title,
+            }))
+          )
+        );
+      }
 
       // OEBPS/style.css
       zip.file(
@@ -184,6 +253,7 @@ export async function generateEpub(
         const content = ch.content
           .map((line) => `<p>${escapeXml(line)}</p>`)
           .join("\n");
+        const heading = hasToc ? `<h1>${escapeXml(ch.title)}</h1>` : "";
 
         zip.file(
           `OEBPS/chapter${i}.xhtml`,
@@ -195,7 +265,7 @@ export async function generateEpub(
             <link rel="stylesheet" type="text/css" href="style.css"/>
           </head>
           <body>
-            <h1>${escapeXml(ch.title)}</h1>
+            ${heading}
             ${content}
           </body>
           </html>`
@@ -222,6 +292,12 @@ export async function generateEpub(
 
   if (type === "comic") {
     try {
+      const bookId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}`;
+      const modifiedAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+
       // 读取压缩包
       const arrayBuffer = await file.arrayBuffer();
       const zip = await JSZip.loadAsync(arrayBuffer);
@@ -254,16 +330,16 @@ export async function generateEpub(
       }
 
       // 按文件名排序
+      const collator = new Intl.Collator(undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
       imageFiles.sort((a, b) => {
-        // 提取数字进行自然排序
-        const getNumber = (str: string) => {
-          const match = str.match(/\d+/);
-          return match ? parseInt(match[0]) : 0;
-        };
-        const numA = getNumber(a.name);
-        const numB = getNumber(b.name);
-        if (numA !== numB) return numA - numB;
-        return a.name.localeCompare(b.name);
+        const baseCompare = collator.compare(getBaseName(a.name), getBaseName(b.name));
+        if (baseCompare !== 0) {
+          return baseCompare;
+        }
+        return collator.compare(a.name, b.name);
       });
 
       // 创建 EPUB
@@ -343,17 +419,19 @@ export async function generateEpub(
     <dc:title>${escapeXml(bookInfo.name)}</dc:title>
     <dc:creator>${escapeXml(bookInfo.author)}</dc:creator>
     <dc:language>zh</dc:language>
-    <dc:identifier id="BookId">${Date.now()}</dc:identifier>
+    <dc:identifier id="BookId">${bookId}</dc:identifier>
+    <meta property="dcterms:modified">${modifiedAt}</meta>
     <meta property="rendition:layout">pre-paginated</meta>
     <meta property="rendition:orientation">auto</meta>
     <meta property="rendition:spread">none</meta>
   </metadata>
   <manifest>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="style" href="style.css" media-type="text/css"/>
 ${manifestItems}
   </manifest>
-  <spine toc="ncx">
+  <spine>
 ${spineItems}
   </spine>
 </package>`
@@ -375,7 +453,7 @@ ${spineItems}
         `<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
-    <meta name="dtb:uid" content="${Date.now()}"/>
+    <meta name="dtb:uid" content="${bookId}"/>
     <meta name="dtb:depth" content="1"/>
   </head>
   <docTitle><text>${escapeXml(bookInfo.name)}</text></docTitle>
@@ -383,6 +461,17 @@ ${spineItems}
 ${navPoints}
   </navMap>
 </ncx>`
+      );
+
+      epubZip.file(
+        "OEBPS/nav.xhtml",
+        createNavXhtml(
+          bookInfo.name,
+          pages.map((p) => ({
+            href: `page${p.index}.xhtml`,
+            label: `Page ${p.index + 1}`,
+          }))
+        )
       );
 
       // OEBPS/style.css - 漫画专用样式

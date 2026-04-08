@@ -3,7 +3,13 @@ export async function* readFileLinesWithEncoding(
   file: File,
   encoding: string
 ): AsyncGenerator<string> {
-  const decoder = new TextDecoder(encoding);
+  let decoder: TextDecoder;
+  try {
+    decoder = new TextDecoder(encoding);
+  } catch {
+    throw new Error(`不支持的文本编码: ${encoding}`);
+  }
+
   const chunkSize = 64 * 1024; // 64KB
   let buffer = "";
   let offset = 0;
@@ -23,6 +29,8 @@ export async function* readFileLinesWithEncoding(
 
     offset += chunkSize;
   }
+
+  buffer += decoder.decode();
 
   if (buffer) {
     const lines = buffer.split("\n");
