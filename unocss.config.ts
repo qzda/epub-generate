@@ -20,31 +20,28 @@ export default defineConfig({
   },
   shortcuts: {
     btn: [
-      "inline-flex items-center gap-2.5 border rounded-lg font-600 px-3.5 py-2.5",
-      "cursor-pointer select-none",
-      "transition-[background-color,border-color,transform,box-shadow,opacity] duration-150",
-      "hover:shadow-sm active:translate-y-[1px] active:shadow-none",
+      "inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl border border-studio-line bg-[var(--panel)] text-studio-text text-[13px] font-700 whitespace-nowrap",
+      "cursor-pointer select-none shadow-[0_8px_20px_-18px_rgba(21,34,56,0.4)]",
+      "transition-[background-color,border-color,transform,box-shadow,filter] duration-150",
+      "hover:shadow-[0_14px_28px_-20px_rgba(21,34,56,0.55)] active:translate-y-[1px]",
     ],
     "btn-primary": [
-      "border-studio-accent bg-studio-accent text-white",
-      "hover:brightness-95 active:brightness-90",
+      "border-transparent bg-[linear-gradient(135deg,#3b76ff,#2453d8)] text-white",
+      "shadow-[0_14px_26px_-14px_rgba(47,99,233,0.85)] hover:brightness-105 active:brightness-95",
     ],
     "btn-disable": ["cursor-not-allowed opacity-60"],
-    "studio-shell":
-      "min-h-full text-studio-text p-3 md:p-5 grid gap-4 bg-studio-bg",
-    "studio-hero":
-      "grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center border border-studio-line rounded-xl p-2.5 md:p-3 bg-[var(--panel)]",
+    "studio-shell": "min-h-full text-studio-text bg-studio-bg",
     "studio-panel":
-      "border border-studio-line rounded-xl bg-[var(--panel)]",
+      "bg-[var(--panel)] border border-studio-line rounded-[20px] overflow-hidden shadow-[0_26px_60px_-50px_rgba(21,34,56,0.4)]",
     "studio-input":
-      "w-full border border-studio-line rounded-lg bg-[var(--panel-muted)] text-studio-text px-2.5 py-2.5 outline-none transition-[border-color,box-shadow] duration-150 focus:border-studio-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]",
-    "studio-label": "text-xs text-studio-muted tracking-[0.02em]",
-    "studio-note": "m-0 text-xs text-studio-muted",
+      "w-full h-[42px] px-3 rounded-[11px] border border-studio-line bg-[#fbfdff] text-studio-text text-[13px] outline-none transition-[border-color,box-shadow] duration-150 focus:border-studio-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]",
+    "studio-label": "text-[12px] font-600 text-[#52637c]",
+    "studio-note": "m-0 text-[11px] leading-[1.5] text-studio-muted",
     "studio-panel-head":
-      "flex justify-between items-baseline px-3 py-2.5 border-b border-studio-line",
-    "studio-panel-body": "overflow-auto p-[10px_12px] min-h-[320px] md:min-h-[430px]",
+      "flex justify-between items-center gap-3 px-5 py-4 border-b border-studio-line",
+    "studio-panel-body": "overflow-auto p-5 min-h-[320px] md:min-h-[430px]",
     "studio-empty-shell":
-      "min-h-[420px] border border-dashed border-studio-line rounded-xl grid place-content-center text-center gap-2 text-studio-muted bg-[var(--panel)]",
+      "min-h-[420px] border border-dashed border-studio-line rounded-[24px] grid place-content-center text-center gap-2 text-studio-muted bg-[var(--panel)]",
   },
   presets: [
     presetMini({

@@ -1,497 +1,742 @@
 <script setup lang="ts">
-  import JSZip from "jszip";
-  import { computed, onBeforeUnmount, ref, watch } from "vue";
-  import { detectTextFileEncoding, EncodingList } from "./utils/text";
-  import { readFileLinesWithEncoding } from "./utils/file";
-  import { generateEpub } from "./utils/epub";
+  import { computed, onBeforeUnmount, ref, shallowRef } from "vue";
+  import { useDropZone, useFileDialog } from "@vueuse/core";
+  import AppNotice from "./components/AppNotice.vue";
+  import BookMetaForm from "./components/BookMetaForm.vue";
+  import ComicWorkspace from "./components/ComicWorkspace.vue";
+  import ExportBar from "./components/ExportBar.vue";
+  import SourceDropzone from "./components/SourceDropzone.vue";
+  import TextSettings from "./components/TextSettings.vue";
+  import TextWorkspace from "./components/TextWorkspace.vue";
+  import { useComicSource } from "./composables/useComicSource";
+  import { useExport } from "./composables/useExport";
+  import { useMessages } from "./composables/useMessages";
+  import { useTextSource } from "./composables/useTextSource";
+  import { createBookMeta, sanitizeEpubFileName } from "./domain/book";
+  import { compileChapterPattern } from "./domain/chapter";
+  import { DEFAULT_ENCODING } from "./domain/encoding";
+  import type { TextEncoding } from "./domain/encoding";
+  import { buildComicEpub } from "./domain/epub/build-comic";
+  import { buildTextEpub } from "./domain/epub/build-text";
+  import { DomainError } from "./domain/result";
+  import { MAX_SOURCE_FILE_SIZE } from "./config/limits";
+  import { isAbortError } from "./services/abort";
+  import { downloadBlob } from "./services/download";
+  import { detectTextEncoding } from "./services/encoding-detect";
+  import { packEpub } from "./services/epub-pack";
+  import { readTextChapters } from "./services/text-source";
 
-  const file = ref<File>();
-  const lines = ref<string[]>();
-  const fileAsyncGenerator = ref<AsyncGenerator<string, void, void>>();
-  const regexText = ref<string>();
-  const regex = computed(() => {
-    if (regexText.value) {
-      try {
-        return new RegExp(regexText.value);
-      } catch {
-        return undefined;
+  const DEFAULT_PATTERN =
+    "^\\s*第[0-9一二三四五六七八九十百千万]+章(?:\\s|$)";
+  const MAX_FILE_LABEL = "50 MB";
+
+  const file = shallowRef<File>();
+  const mode = ref<"text" | "comic">("text");
+  const bookTitle = ref("");
+  const bookAuthor = ref("未知作者");
+  const encoding = ref<TextEncoding>(DEFAULT_ENCODING);
+  const pattern = ref(DEFAULT_PATTERN);
+  const detectedEncoding = ref<string | null>(null);
+  const encodingFallback = ref(false);
+  const isEncodingDetecting = ref(false);
+
+  const textFile = computed(() =>
+    mode.value === "text" ? file.value : undefined
+  );
+  const comicFile = computed(() =>
+    mode.value === "comic" ? file.value : undefined
+  );
+
+  const {
+    previewLines,
+    chapterRefs,
+    totalLines,
+    matchedCount,
+    isScanning,
+    error: textError,
+  } = useTextSource(textFile, encoding, pattern);
+
+  const {
+    previews: comicPreviews,
+    images: comicImages,
+    totalImages,
+    isLoading: isComicLoading,
+    error: comicError,
+  } = useComicSource(comicFile);
+
+  const {
+    isGenerating,
+    progress,
+    stage,
+    error: exportError,
+    run,
+  } = useExport();
+
+  const { notices, push, dismiss, clear: clearMessages } = useMessages();
+
+  const dropZoneRef = ref<HTMLElement | null>(null);
+
+  const { isOverDropZone } = useDropZone(dropZoneRef, {
+    multiple: false,
+    onDrop(files) {
+      const selected = files?.[0];
+      if (selected) {
+        void selectFile(selected);
       }
-    }
-    return undefined;
+    },
   });
 
-  const matchedChapters = ref<{ index: number; title: string }[]>([]);
-  const isGenerating = ref(false);
-  const bookType = ref<"book" | "comic">("book");
-  const bookName = ref<string>("");
-  const bookAuthor = ref<string>("未知作者");
-  const encoding = ref<string>();
-  const uploadInputRef = ref<HTMLInputElement>();
-  const comicPreviewImages = ref<Array<{ name: string; url: string }>>([]);
-  const isComicPreviewLoading = ref(false);
-  const comicPreviewError = ref("");
+  const {
+    open: openFilePicker,
+    reset: resetFilePicker,
+    onChange: onFileDialogChange,
+  } = useFileDialog({
+    accept: "text/*,.md,.txt,.zip",
+    multiple: false,
+    reset: true,
+  });
 
-  function openFilePicker() {
-    uploadInputRef.value?.click();
+  onFileDialogChange((files) => {
+    const selected = files?.item(0);
+    if (selected) {
+      void selectFile(selected);
+    }
+  });
+
+  let selectionToken = 0;
+  let detectController: AbortController | null = null;
+
+  const canExport = computed(() => {
+    if (!file.value || isGenerating.value || isEncodingDetecting.value) {
+      return false;
+    }
+
+    if (mode.value === "text") {
+      return (
+        !isScanning.value && !textError.value && totalLines.value > 0
+      );
+    }
+
+    return (
+      !isComicLoading.value &&
+      !comicError.value &&
+      totalImages.value > 0
+    );
+  });
+
+  function isZipFile(candidate: File): boolean {
+    return candidate.name.toLowerCase().endsWith(".zip");
   }
 
-  function clearComicPreview() {
-    comicPreviewImages.value.forEach((image) => URL.revokeObjectURL(image.url));
-    comicPreviewImages.value = [];
-    comicPreviewError.value = "";
+  function isTextLikeFile(candidate: File): boolean {
+    if (isZipFile(candidate)) {
+      return false;
+    }
+
+    if (candidate.type.startsWith("text/")) {
+      return true;
+    }
+
+    const name = candidate.name.toLowerCase();
+    return name.endsWith(".txt") || name.endsWith(".md");
   }
 
-  function getBaseName(path: string): string {
-    const normalized = path.replace(/\\/g, "/");
-    return normalized.split("/").pop() || path;
+  function fileTitle(candidate: File): string {
+    return candidate.name.replace(/\.[^/.]+$/, "").trim();
   }
 
-  async function loadComicPreview(file: File) {
-    clearComicPreview();
-    isComicPreviewLoading.value = true;
+  function errorText(cause: unknown, fallback: string): string {
+    return cause instanceof Error && cause.message
+      ? cause.message
+      : fallback;
+  }
+
+  async function selectFile(candidate: File): Promise<void> {
+    if (isGenerating.value) {
+      push("warning", "正在生成 EPUB，请稍后再切换文件。");
+      return;
+    }
+
+    if (candidate.size > MAX_SOURCE_FILE_SIZE) {
+      push(
+        "error",
+        `文件超过 ${MAX_FILE_LABEL} 限制，请压缩后再试。`
+      );
+      return;
+    }
+
+    const isZip = isZipFile(candidate);
+    if (!isZip && !isTextLikeFile(candidate)) {
+      push("error", "仅支持 TXT/MD 文本或 ZIP 图片压缩包。");
+      return;
+    }
+
+    clearMessages();
+    selectionToken += 1;
+    const currentToken = selectionToken;
+    detectController?.abort();
+    detectController = null;
+
+    file.value = candidate;
+    mode.value = isZip ? "comic" : "text";
+    bookTitle.value = fileTitle(candidate);
+    detectedEncoding.value = null;
+    encodingFallback.value = false;
+    isEncodingDetecting.value = !isZip;
+
+    if (isZip) {
+      pattern.value = DEFAULT_PATTERN;
+      push("info", `已载入 ${candidate.name}，正在读取图片包。`);
+      return;
+    }
+
+    encoding.value = DEFAULT_ENCODING;
+    pattern.value = DEFAULT_PATTERN;
+
+    const controller = new AbortController();
+    detectController = controller;
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
-      const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"];
-      const imageFiles: Array<{ name: string; data: JSZip.JSZipObject }> = [];
-
-      zip.forEach((relativePath, fileEntry) => {
-        if (fileEntry.dir) return;
-        const lower = relativePath.toLowerCase();
-        if (imageExtensions.some((ext) => lower.endsWith(ext))) {
-          imageFiles.push({ name: relativePath, data: fileEntry });
-        }
+      const detection = await detectTextEncoding(candidate, {
+        signal: controller.signal,
       });
 
-      const collator = new Intl.Collator(undefined, {
-        numeric: true,
-        sensitivity: "base",
-      });
-      imageFiles.sort((a, b) => {
-        const baseCompare = collator.compare(getBaseName(a.name), getBaseName(b.name));
-        if (baseCompare !== 0) return baseCompare;
-        return collator.compare(a.name, b.name);
-      });
-
-      const previewFiles = imageFiles.slice(0, 20);
-      for (const previewFile of previewFiles) {
-        const blob = await previewFile.data.async("blob");
-        const url = URL.createObjectURL(blob);
-        comicPreviewImages.value.push({
-          name: getBaseName(previewFile.name),
-          url,
-        });
+      if (currentToken !== selectionToken) {
+        return;
       }
-    } catch (error) {
-      comicPreviewError.value = "图片预览加载失败";
-      console.error("加载漫画预览失败:", error);
+
+      encoding.value = detection.encoding;
+      detectedEncoding.value = detection.detected;
+      encodingFallback.value = detection.fallback;
+
+      if (detection.fallback) {
+        push(
+          "warning",
+          `未能可靠识别文本编码，已回退 ${detection.encoding}。`
+        );
+      }
+
+      push("info", `已载入 ${candidate.name}，正在扫描全文。`);
+    } catch (cause) {
+      if (currentToken === selectionToken && !isAbortError(cause)) {
+        push("error", errorText(cause, "文本编码检测失败。"));
+      }
     } finally {
-      isComicPreviewLoading.value = false;
+      if (currentToken === selectionToken) {
+        isEncodingDetecting.value = false;
+      }
+    }
+  }
+
+  function pickFile(): void {
+    if (isGenerating.value) {
+      return;
+    }
+    resetFilePicker();
+    openFilePicker();
+  }
+
+  function createIdentifier(): string {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function createModifiedAt(): string {
+    return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  }
+
+  async function exportEpub(): Promise<void> {
+    const currentFile = file.value;
+    if (!currentFile || isGenerating.value) {
+      return;
+    }
+
+    if (mode.value === "text") {
+      if (!pattern.value.trim()) {
+        push("error", "请填写章节正则。");
+        return;
+      }
+      if (isScanning.value) {
+        push("warning", "正在扫描文本，请稍候再生成。");
+        return;
+      }
+      if (textError.value) {
+        push("error", textError.value.message);
+        return;
+      }
+    } else {
+      if (isComicLoading.value) {
+        push("warning", "正在读取图片包，请稍候再生成。");
+        return;
+      }
+      if (comicError.value) {
+        push("error", comicError.value.message);
+        return;
+      }
+    }
+
+    const currentMode = mode.value;
+    const currentEncoding = encoding.value;
+    const currentPattern = pattern.value;
+    const currentImages = comicImages.value;
+    const meta = createBookMeta({
+      title: bookTitle.value,
+      author: bookAuthor.value,
+    });
+    const fileName = sanitizeEpubFileName(bookTitle.value || meta.title);
+    const identifier = createIdentifier();
+    const modifiedAt = createModifiedAt();
+
+    const summary = await run(async (report, signal) => {
+      if (currentMode === "text") {
+        const compiled = compileChapterPattern(currentPattern);
+        if (!compiled.ok) {
+          throw new DomainError(compiled.error.code, compiled.error.message);
+        }
+
+        report("reading", 0.05);
+        const chapters = await readTextChapters(
+          currentFile,
+          currentEncoding,
+          compiled.value,
+          { signal }
+        );
+        report("building", 0.6);
+
+        const entries = buildTextEpub({
+          meta,
+          identifier,
+          modifiedAt,
+          chapters,
+        });
+        report("packing", 0.7);
+
+        const blob = await packEpub(entries, {
+          signal,
+          onProgress: (ratio) => report("packing", 0.7 + ratio * 0.25),
+        });
+
+        report("done", 1);
+        downloadBlob(blob, fileName);
+        return `文本 EPUB 生成成功，共 ${chapters.length} 章。`;
+      }
+
+      if (currentImages.length === 0) {
+        throw new DomainError("NO_IMAGES", "ZIP 中没有可用的图片。");
+      }
+
+      report("building", 0.5);
+      const entries = buildComicEpub({
+        meta,
+        identifier,
+        modifiedAt,
+        images: currentImages,
+      });
+      report("packing", 0.7);
+
+      const blob = await packEpub(entries, {
+        signal,
+        onProgress: (ratio) => report("packing", 0.7 + ratio * 0.25),
+      });
+
+      report("done", 1);
+      downloadBlob(blob, fileName);
+      return `漫画 EPUB 生成成功，共 ${currentImages.length} 页。`;
+    });
+
+    if (summary) {
+      push("success", summary);
+    } else if (exportError.value) {
+      push("error", exportError.value.message);
     }
   }
 
   onBeforeUnmount(() => {
-    clearComicPreview();
+    selectionToken += 1;
+    detectController?.abort();
   });
-
-  function isTextLikeFile(_file: File): boolean {
-    const name = _file.name.toLowerCase();
-    if (name.endsWith(".zip")) {
-      return false;
-    }
-
-    if (_file.type.startsWith("text/")) {
-      return true;
-    }
-
-    const textExtensions = [".txt", ".md"];
-
-    return textExtensions.some((ext) => name.endsWith(ext));
-  }
-
-  watch([lines, regex], ([_lines, _regex]) => {
-    matchedChapters.value = [];
-    if (_regex && _lines?.length) {
-      _lines.forEach((_line, index) => {
-        const match = _line.match(_regex);
-        if (match) {
-          matchedChapters.value.push({
-            index,
-            title: _line.trim(),
-          });
-        }
-      });
-    }
-  });
-
-  async function onFileChange(e: Event) {
-    const _file = (e.target as HTMLInputElement).files?.item(0);
-
-    if (_file && _file.size < 50 * 1048576) {
-      console.log("上传文件", _file.name);
-
-      file.value = _file;
-      bookName.value = _file.name.replace(/\.[^/.]+$/, "");
-
-      if (isTextLikeFile(_file)) {
-        bookType.value = "book";
-        clearComicPreview();
-
-        // 自动检测编码
-        const detectedEncoding = await detectTextFileEncoding(_file);
-        encoding.value = detectedEncoding || "utf-8";
-        console.log("检测到的编码:", detectedEncoding || "utf-8");
-
-        // 使用检测到的编码读取文件
-        await loadFilePreview(_file, encoding.value);
-
-        setTimeout(() => {
-          regexText.value = "第.+章";
-        }, 200);
-      }
-
-      if (_file.name.toLowerCase().endsWith(".zip")) {
-        bookType.value = "comic";
-        await loadComicPreview(_file);
-      }
-    } else {
-      console.error("onFileChange", _file);
-    }
-  }
-
-  async function onEncodingChange() {
-    if (file.value && encoding.value) {
-      await loadFilePreview(file.value, encoding.value);
-    }
-  }
-
-  async function loadFilePreview(file: File, enc: string) {
-    fileAsyncGenerator.value = readFileLinesWithEncoding(file, enc);
-    lines.value = [];
-
-    let count = 0;
-    for await (const line of fileAsyncGenerator.value) {
-      if (count >= 200) {
-        break;
-      }
-
-      lines.value.push(line);
-
-      if (line.trim().length) {
-        count++;
-      }
-    }
-  }
-
-  async function generateEpubHandle() {
-    if (isGenerating.value || !file.value) {
-      return;
-    }
-
-    if (bookType.value === "book" && (!regexText.value || !encoding.value)) {
-      alert("请填写章节正则并选择文本编码");
-      return;
-    }
-
-    isGenerating.value = true;
-
-    try {
-      if (bookType.value === "book") {
-        await generateEpub(file.value, bookName.value, {
-          type: "book",
-          name: bookName.value,
-          author: bookAuthor.value,
-          option: {
-            regex: regexText.value!,
-            encoding: encoding.value!,
-          },
-        });
-      }
-
-      if (bookType.value === "comic") {
-        await generateEpub(file.value, bookName.value, {
-          type: "comic",
-          name: bookName.value,
-          author: bookAuthor.value,
-        });
-      }
-    } finally {
-      isGenerating.value = false;
-    }
-  }
 </script>
 
 <template>
-  <div class="studio-shell rise-in pb-14">
-    <header class="studio-hero">
-      <div>
-        <h1 class="m-0 text-[clamp(20px,3.4vw,30px)] leading-[1.05] tracking-[0.01em]">
-          文本与图包，一键制书
-        </h1>
-        <p class="mt-1.5 mb-0 max-w-[54ch] text-[13px] text-studio-muted">
-          支持 TXT/MD 自动分章，也支持 ZIP 图片集按文件名排序转漫画 EPUB。
-        </p>
+  <div
+    ref="dropZoneRef"
+    class="studio-page rise-in"
+    :class="
+      isOverDropZone
+        ? 'outline-2 outline-dashed outline-studio-accent outline-offset-[-10px]'
+        : ''
+    "
+  >
+    <div class="page-inner">
+      <div class="topline">
+        <div class="brand">
+          <span class="brand-mark">E</span>
+          <div class="brand-copy">
+            Epub Generate
+            <span>text &amp; comic → epub</span>
+          </div>
+        </div>
+        <div class="status">
+          <i />
+          本地处理 · 文件不会上传
+        </div>
       </div>
-      <div class="flex items-center gap-2 max-md:w-full">
-        <button
-          type="button"
-          class="btn border-studio-line bg-[var(--panel-muted)] text-studio-text hover:bg-[var(--accent-soft)] max-md:flex-1 max-md:justify-center"
-          @click="openFilePicker"
-        >
-          <i class="i-carbon:upload" />
-          <span>上传文件</span>
-        </button>
-        <button
-          @click="generateEpubHandle"
-          :disabled="isGenerating || !file"
-          :class="[
-            'btn btn-primary !mt-0 max-md:flex-1 max-md:justify-center',
-            isGenerating || !file ? 'btn-disable' : '',
-          ]"
-        >
-          <i class="i-carbon:book" />
-          <span v-if="isGenerating">生成中...</span>
-          <span v-else>生成 EPUB</span>
-        </button>
-      </div>
-      <input
-        ref="uploadInputRef"
-        class="hidden"
-        type="file"
-        id="uploadTextFile"
-        accept="text/*,.md,.txt,.zip"
-        @change="onFileChange"
+
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Text &amp; Comic to EPUB</p>
+          <h1>把文字，做成一本电子书。</h1>
+          <p class="hero-description">
+            拖入 TXT/MD 自动分章，或导入 ZIP 图片包按自然序排页。所有内容只在浏览器本地处理。
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button
+            type="button"
+            class="btn"
+            :disabled="isGenerating"
+            :class="isGenerating ? 'btn-disable' : ''"
+            @click="pickFile"
+          >
+            <i class="i-carbon:upload" />
+            <span>上传文件</span>
+          </button>
+          <ExportBar
+            :disabled="!canExport"
+            :is-generating="isGenerating"
+            :progress="progress"
+            :stage="stage"
+            @export="exportEpub"
+          />
+        </div>
+      </header>
+
+      <AppNotice
+        :notices="notices"
+        @dismiss="dismiss"
       />
-    </header>
 
-    <section
-      v-if="file"
-      class="grid grid-cols-1 lg:grid-cols-[290px_1fr] gap-3.5 min-h-[520px]"
-    >
-      <aside
-        class="grid content-start gap-3 border border-studio-line rounded-xl p-3.5 bg-[var(--panel)]"
+      <section
+        v-if="file"
+        class="workspace"
       >
-        <div class="border border-studio-line rounded-lg bg-[var(--panel-muted)] p-2.5">
-          <p class="m-0 break-all font-700 text-[13px]/[1.4] font-mono">
-            {{ file.name }}
-          </p>
-          <p class="mt-1.5 mb-0 text-xs text-studio-muted">
-            {{ (file.size / 1024).toFixed(2) }} KB ·
-            {{ bookType === "book" ? "文本模式" : "漫画模式" }}
-          </p>
-        </div>
-
-        <div class="grid gap-1.5">
-          <label
-            for="bookName"
-            class="studio-label"
-          >
-            书名
-          </label>
-          <input
-            id="bookName"
-            v-model="bookName"
-            class="studio-input"
-            type="text"
-            placeholder="请输入书名"
-          />
-        </div>
-
-        <div class="grid gap-1.5">
-          <label
-            for="bookAuthor"
-            class="studio-label"
-          >
-            作者
-          </label>
-          <input
-            id="bookAuthor"
-            v-model="bookAuthor"
-            class="studio-input"
-            type="text"
-            placeholder="请输入作者"
-          />
-        </div>
-
-        <div
-          v-if="bookType === 'book'"
-          class="grid gap-1.5"
-        >
-          <label
-            for="encoding"
-            class="studio-label"
-          >
-            文本编码
-          </label>
-          <select
-            id="encoding"
-            v-model="encoding"
-            @change="onEncodingChange"
-            class="studio-input cursor-pointer"
-          >
-            <option
-              v-for="encodingOption in EncodingList"
-              :key="encodingOption"
-              :value="encodingOption"
-            >
-              {{ encodingOption }}
-            </option>
-          </select>
-          <p class="studio-note">自动检测: {{ encoding }}</p>
-        </div>
-
-        <div
-          v-if="bookType === 'book'"
-          class="grid gap-1.5"
-        >
-          <label
-            for="regex"
-            class="studio-label"
-          >
-            章节正则
-          </label>
-          <input
-            id="regex"
-            v-model="regexText"
-            class="studio-input"
-            type="text"
-            placeholder="例如: 第.+章"
-          />
-          <p class="studio-note">匹配到 {{ matchedChapters.length }} 个章节</p>
-        </div>
-
-      </aside>
-
-      <main
-        :class="
-          bookType === 'book'
-            ? 'grid grid-cols-1 md:grid-cols-2 gap-3.5 min-h-0'
-            : 'grid grid-cols-1 gap-3.5 min-h-0'
-        "
-      >
-        <template v-if="bookType === 'book'">
-          <section class="studio-panel min-h-0 grid grid-rows-[auto_1fr]">
-            <div class="studio-panel-head">
-              <h3 class="m-0 text-sm font-700">文本预览</h3>
-              <span class="text-xs text-studio-muted">前 200 行</span>
+        <aside class="settings-card studio-panel">
+          <div class="file-chip">
+            <div class="file-icon">
+              <i class="i-carbon:document text-[18px]" />
             </div>
-            <div class="studio-panel-body">
-              <p
-                v-for="(line, index) in lines"
-                :key="index"
-                :class="
-                  matchedChapters.some((ch) => ch.index === index)
-                    ? 'm-0 whitespace-pre-wrap break-words font-mono text-[12.5px]/[1.6] text-studio-accent font-700'
-                    : 'm-0 whitespace-pre-wrap break-words font-mono text-[12.5px]/[1.6]'
-                "
-              >
-                {{ line || "\u00A0" }}
-              </p>
-            </div>
-          </section>
-
-          <section class="studio-panel min-h-0 grid grid-rows-[auto_1fr]">
-            <div class="studio-panel-head">
-              <h3 class="m-0 text-sm font-700">目录识别</h3>
-              <span class="text-xs text-studio-muted">{{ matchedChapters.length }} 条</span>
-            </div>
-            <div class="studio-panel-body">
-              <p
-                v-if="matchedChapters.length === 0"
-                class="m-[20px_auto] text-center text-sm text-studio-muted"
-              >
-                未识别到章节，将按短篇正文生成。
-              </p>
-              <p
-                v-for="(chapter, index) in matchedChapters"
-                v-else
-                :key="index"
-                class="m-0 border-b border-studio-line py-2 text-[13px] [&>span]:inline-block [&>span]:w-7 [&>span]:font-mono [&>span]:text-studio-accent"
-              >
-                <span>{{ index + 1 }}</span>
-                {{ chapter.title }}
-              </p>
-            </div>
-          </section>
-        </template>
-
-        <section
-          v-else
-          class="studio-panel min-h-0 grid grid-rows-[auto_1fr]"
-        >
-          <div class="studio-panel-head">
-            <h3 class="m-0 text-sm font-700">漫画模式</h3>
-            <span class="text-xs text-studio-muted">前 20 张预览</span>
-          </div>
-          <div class="studio-panel-body">
-            <p
-              v-if="isComicPreviewLoading"
-              class="m-0 h-full grid place-items-center text-sm text-studio-muted"
-            >
-              正在加载图片预览...
-            </p>
-            <p
-              v-else-if="comicPreviewError"
-              class="m-0 h-full grid place-items-center text-sm text-red-500"
-            >
-              {{ comicPreviewError }}
-            </p>
-            <p
-              v-else-if="comicPreviewImages.length === 0"
-              class="m-0 h-full grid place-items-center text-sm text-studio-muted"
-            >
-              压缩包中未找到可预览的图片
-            </p>
-            <div
-              v-else
-              class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2"
-            >
-              <figure
-                v-for="(image, index) in comicPreviewImages"
-                :key="`${image.name}-${index}`"
-                class="m-0 border border-studio-line rounded-lg bg-[var(--panel-muted)] overflow-hidden"
-              >
-                <img
-                  :src="image.url"
-                  :alt="image.name"
-                  class="w-full h-40 object-cover block"
-                />
-                <figcaption class="px-2 py-1 text-[11px] text-studio-muted truncate">
-                  {{ image.name }}
-                </figcaption>
-              </figure>
+            <div class="min-w-0">
+              <b>{{ file.name }}</b>
+              <span>
+                {{ (file.size / 1024).toFixed(2) }} KB ·
+                {{ mode === "text" ? "文本模式" : "漫画模式" }}
+              </span>
             </div>
           </div>
-        </section>
-      </main>
-    </section>
 
-    <section
-      v-else
-      class="studio-empty-shell"
-    >
-      <i class="i-carbon:document text-[56px] m-[0_auto_6px] text-studio-accent" />
-      <h2 class="m-0 text-studio-text text-[22px]">把文稿或图包拖进来</h2>
-      <p class="m-0 text-sm">TXT/MD 支持正则分章，ZIP 图片包自动排页。</p>
-    </section>
+          <p class="section-title">书籍信息</p>
+          <BookMetaForm
+            v-model:title="bookTitle"
+            v-model:author="bookAuthor"
+          />
 
-    <footer
-      class="fixed bottom-0 left-0 right-0 h-12 flex items-center justify-center text-xs text-studio-muted bg-[var(--background)]/85 backdrop-blur-sm"
-    >
-      2025-PRESENT &copy;
-      <a
-        href="https://github.com/qzda/epub-generate"
-        target="_blank"
-        class="text-studio-accent no-underline"
-      >
-        qzda <i class="i-carbon:logo-github" />
-      </a>
-    </footer>
+          <template v-if="mode === 'text'">
+            <p class="section-title">文本设置</p>
+            <TextSettings
+              v-model:encoding="encoding"
+              v-model:pattern="pattern"
+              :chapter-count="matchedCount"
+              :total-lines="totalLines"
+              :is-scanning="isScanning"
+              :is-detecting-encoding="isEncodingDetecting"
+              :encoding-fallback="encodingFallback"
+              :detected-encoding="detectedEncoding"
+              :error="textError"
+            />
+          </template>
+          <p
+            v-else
+            class="studio-note mt-5"
+          >
+            ZIP 中的图片会按文件名自然序排列，一张图片一页。
+          </p>
+        </aside>
+
+        <main class="min-w-0">
+          <TextWorkspace
+            v-if="mode === 'text'"
+            :preview-lines="previewLines"
+            :chapters="chapterRefs"
+            :total-lines="totalLines"
+            :is-scanning="isScanning"
+            :error="textError"
+            :book-title="bookTitle"
+            :book-author="bookAuthor"
+          />
+          <ComicWorkspace
+            v-else
+            :previews="comicPreviews"
+            :total-images="totalImages"
+            :is-loading="isComicLoading"
+            :error="comicError"
+          />
+        </main>
+      </section>
+
+      <SourceDropzone
+        v-else
+        :active="isOverDropZone"
+        :disabled="isGenerating"
+        @pick="pickFile"
+      />
+
+      <footer class="page-footer">
+        <span>本地优先 · 无上传 · 无遥测</span>
+        <span>
+          2025-PRESENT ©
+          <a
+            href="https://github.com/qzda/epub-generate"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            qzda
+          </a>
+        </span>
+      </footer>
+    </div>
   </div>
 </template>
 
 <style scoped>
+  .studio-page {
+    min-height: 100dvh;
+    padding: 78px 30px 28px;
+    color: var(--foreground);
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(125, 166, 255, 0.22), transparent 60%),
+      radial-gradient(700px 400px at 0% 10%, rgba(186, 214, 255, 0.32), transparent 55%),
+      var(--background);
+  }
+
+  .page-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 14px;
+    padding: 0 2px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3b76ff, #2148c9);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    box-shadow: 0 8px 18px -8px rgba(47, 99, 233, 0.8);
+  }
+
+  .brand-copy {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .brand-copy span {
+    display: block;
+    margin-top: 1px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .status i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+  }
+
+  .hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+    overflow: hidden;
+    padding: 28px 32px;
+    border: 1px solid rgba(214, 225, 242, 0.9);
+    border-radius: 24px;
+    background: linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.96),
+      rgba(241, 246, 255, 0.92)
+    );
+    box-shadow: 0 30px 70px -55px rgba(21, 34, 56, 0.55);
+  }
+
+  .hero::after {
+    content: "";
+    position: absolute;
+    top: -96px;
+    right: 170px;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(100, 145, 255, 0.22), transparent 65%);
+    pointer-events: none;
+  }
+
+  .hero-copy {
+    position: relative;
+    z-index: 1;
+  }
+
+  .eyebrow {
+    margin: 0 0 8px;
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(28px, 3vw, 38px);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-description {
+    max-width: 55ch;
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .hero-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 10px;
+  }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    align-items: start;
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  .settings-card {
+    padding: 20px;
+  }
+
+  .file-chip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: linear-gradient(180deg, #f8fbff, #f3f7ff);
+  }
+
+  .file-icon {
+    display: grid;
+    flex: 0 0 38px;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .file-chip b {
+    display: block;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+  }
+
+  .file-chip span {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 22px 0 12px;
+    color: #8b9ab2;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .page-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 0 4px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .page-footer a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .page-footer a:hover {
+    text-decoration: underline;
+  }
+
   .rise-in {
     animation: rise 420ms ease-out;
   }
@@ -504,6 +749,48 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .hero h1 {
+      font-size: 24px;
+    }
+
+    .hero-description {
+      font-size: 12px;
+    }
+  }
+
+  @media (max-width: 960px) {
+    .studio-page {
+      padding: 74px 18px 24px;
+    }
+
+    .status {
+      display: none;
+    }
+
+    .hero {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 24px;
+    }
+
+    .hero-actions {
+      width: 100%;
+    }
+
+    .hero-actions > :first-child {
+      flex: 1;
+    }
+
+    .workspace {
+      grid-template-columns: 1fr;
+    }
+
+    .settings-card {
+      padding: 18px;
     }
   }
 </style>

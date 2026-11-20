@@ -1,6 +1,6 @@
 # Epub Generate 重写计划
 
-> 状态：阶段 2 已完成，阶段 3 待开始
+> 状态：阶段 3 已完成，阶段 4 待开始
 > 最后更新：2026-11-20
 > 关联文档：[AGENTS.md](../AGENTS.md)
 
@@ -90,7 +90,8 @@ src/
 ├─ components/
 │  ├─ SourceDropzone.vue       # 点击、拖拽、键盘操作
 │  ├─ BookMetaForm.vue
-│  ├─ TextWorkspace.vue        # 编码、正则、完整目录、预览
+│  ├─ TextSettings.vue         # 编码、章节正则与扫描状态
+│  ├─ TextWorkspace.vue        # 预览 + 完整目录
 │  ├─ ComicWorkspace.vue       # 图片预览网格
 │  ├─ ExportBar.vue            # 生成按钮 + 原生 progress
 │  └─ AppNotice.vue            # aria-live 消息
@@ -180,14 +181,24 @@ type AppErrorCode =
 
 ## 8. UI 规划
 
-保留现有 UnoCSS 视觉语言与单页工作台布局：
+采用方案 B「卡片工作台」：
 
 ```text
 App.vue
-├─ 顶部：SourceDropzone + 生成按钮
-├─ 左侧：BookMetaForm +（文本）编码选择 / 章节正则
-└─ 右侧：TextWorkspace（预览 + 完整目录）或 ComicWorkspace（图片网格）
+├─ 顶栏：品牌 + 本地处理状态
+├─ Hero：标题说明 + 上传文件 / 生成 EPUB
+├─ 消息：顶部居中 AppNotice（保留原样式）
+└─ 工作区
+   ├─ 左卡：文件信息 + 书籍信息 + 文本设置 / 漫画说明
+   └─ 右卡：正文预览（预览 / 目录切换 + 章节 chips）或漫画预览网格
 ```
+
+视觉规则：
+
+- 浅蓝灰背景 `#f2f6fc`，白色圆角卡片，蓝色主色 `#2f63e9`。
+- 卡片圆角 20px，输入框 11px，按钮 12px；主按钮使用蓝色渐变。
+- 顶部 Hero 使用浅色渐变与柔和光斑，保持单页工作台结构。
+- 消息组件保持顶部居中原样式。
 
 体验要求：
 
@@ -210,8 +221,8 @@ App.vue
 
 依赖变化：
 
-- 新增运行时：`fflate`（阶段 2 已安装）、`@vueuse/core`（阶段 3 安装）
-- 移除运行时：`jszip`（阶段 3 删除旧 `utils/epub.ts` 时移除，当前仍被旧代码引用）
+- 新增运行时：`fflate`（阶段 2 已安装）、`@vueuse/core`（阶段 3 已安装）
+- 移除运行时：`jszip`（阶段 3 删除旧 `utils/epub.ts` 时已移除）
 - 新增开发依赖：`@vitest/coverage-v8`
 - 保留：`vue`、`chardet`
 
@@ -252,6 +263,7 @@ App.vue
 | `epub-pack.errors.test.ts` | 压缩中取消、fflate 回调/同步异常 |
 | `download.test.ts` | 链接创建、点击、异常时 URL 释放、默认全局依赖 |
 | `binary.test.ts` | ArrayBuffer 视图零拷贝、SharedArrayBuffer 视图复制 |
+| `abort.test.ts` | AbortError 创建、取消检查、错误识别 |
 
 要求：
 
@@ -277,9 +289,10 @@ App.vue
   - 退出标准：服务层测试全绿，可取消、可报告进度。
   - 完成情况：18 个测试文件、146 个用例全绿；services 行覆盖 99.37%、分支 98.83%，全局行覆盖 99.42%。
 
-- [ ] **阶段 3：composables + 组件**
+- [x] **阶段 3：composables + 组件**
   - 接入 VueUse，拆分组件，删除旧 `src/utils/*`。
   - 退出标准：页面功能等价，`pnpm check` 通过。
+  - 完成情况：接入 `useDropZone`、`useFileDialog`、`watchDebounced`；拆出 7 个组件与 4 个 composable；删除旧 `utils/*`、`types.ts` 与 `jszip`；19 个测试文件、149 个用例全绿，构建成功。
 
 - [ ] **阶段 4：体验补齐**
   - 拖拽上传、全文目录、错误提示、原生进度条、文件名修复。
@@ -316,6 +329,8 @@ App.vue
 | 2026-11-20 | 阶段 0 | 架构、依赖、测试策略定稿；计划文档建立 | — |
 | 2026-11-20 | 阶段 1 | 完成 `src/domain/`：Result/错误码、书籍元数据、编码别名、流式分章器、漫画排序、EPUB 文档与纯函数 builder；抽取 `epub/scaffold.ts` 统一文本/漫画固定文件序列；新增 `result.test.ts` 与捕获组分章用例；安装 `@vitest/coverage-v8`，`test` 改为 `vitest run`，新增 `test:coverage` 并按文件校验 90% 阈值；ESLint 忽略 `coverage/` | `pnpm check` 通过；`pnpm test:coverage` 10 文件 86 用例全绿，domain 行覆盖 99.2%、分支 98.63% |
 | 2026-11-20 | 阶段 2 | 完成 `src/services/`：`readFileLines`（CRLF/CR/LF、跨块多字节、BOM、取消）、`detectTextEncoding`（chardet + 回退标记）、`scanTextSource`/`readTextChapters`、`readComicSource`（ZIP 签名、自然序、预览 URL、dispose）、`packEpub`（fflate、mimetype STORE、固定 mtime、进度、取消）、`downloadBlob`；新增 `config/limits.ts` 与 `services/abort.ts`；安装 `fflate`，覆盖率纳入 services 并保留 domain 按文件 90% 阈值 | `pnpm check` 通过；`pnpm test:coverage` 18 文件 146 用例全绿，services 行覆盖 99.37%、分支 98.83%，全局行覆盖 99.42% |
+| 2026-11-20 | 阶段 3 | 重写 `App.vue` 为组合入口；新增 `useTextSource`（防抖/取消/全文目录）、`useComicSource`（ZIP 预览与 URL 清理）、`useExport`（阶段进度/错误）、`useMessages`；拆出 SourceDropzone、BookMetaForm、TextSettings、TextWorkspace、ComicWorkspace、ExportBar、AppNotice；接入 VueUse 拖拽与文件选择；删除旧 `utils/*`、`types.ts` 与 `jszip`；默认正则改为锚定章节标题；新增 `abort.test.ts` | `pnpm check` 通过；`pnpm test:coverage` 19 文件 149 用例全绿；Playwright 验证 UTF-8/GBK 文本与漫画 ZIP 预览、导出结构、非法正则与无图片错误；截图与 EPUB 保存在 `.playwright-mcp/2026-11-20T13-03/` |
+| 2026-11-20 | UI 重构 | 选定方案 B「卡片工作台」；重做顶栏、Hero、左设置卡与右预览卡；文本预览增加「预览 / 目录」切换和章节 chips；漫画预览改为卡片网格；更新主题色与 UnoCSS 快捷类；保留顶部居中消息组件 | `pnpm check`、`pnpm build` 通过；Playwright 验证桌面/移动空状态、文本预览、目录切换、漫画预览与导出；截图保存在 `.playwright-mcp/2026-11-20T13-20/` |
 
 ## 15. 维护约定
 

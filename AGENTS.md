@@ -47,7 +47,7 @@ feat(comic): 支持按自然序排列漫画 ZIP 图片
 
 - 先按文件名自然序比较，再回退到完整路径比较，避免 2.jpg 排在 10.jpg 之后。
 - 预览与最终 EPUB 共用同一套排序逻辑。
-- 补充 readFileLinesWithEncoding 的分块读取测试。
+- 补充 readFileLines 的分块读取测试。
 ```
 
 无论用户是否要求 commit，agent 永远不准执行 `git push`。push 必须由用户自己完成。
@@ -68,33 +68,35 @@ Epub Generate 是纯前端的本地工具：用户在浏览器里选择文本文
 - 构建与开发：Vite + TypeScript + `vue-tsc`。
 - 框架：Vue 3 `<script setup>` 单文件组件。
 - 样式：UnoCSS（`presetWind4`、`presetMini`、`presetAttributify`、`presetIcons`），主题与快捷类集中在 `unocss.config.ts`。
-- EPUB 打包：`jszip`。
+- EPUB 打包：`fflate`。
+- 交互工具：`@vueuse/core`（拖拽、文件选择、防抖）。
 - 编码检测：`chardet` + 浏览器 `TextDecoder`。
 - 测试：Vitest（Node 环境，纯函数优先）。
 
 关键文件：
 
-- `src/App.vue`：页面结构、状态、文件选择、预览、交互入口。
-- `src/utils/epub.ts`：EPUB 目录结构与文件生成（文本 / 漫画两种模式）。
-- `src/utils/file.ts`：按指定编码分块流式读取文本行。
-- `src/utils/text.ts`：支持编码列表、编码别名归一化与自动检测。
-- `src/types.ts`：`Chapter` 等共享类型。
+- `src/App.vue`：页面布局、状态编排、文件选择与导出入口。
+- `src/domain/`：纯函数领域层（分章、编码、漫画排序、EPUB 构建）。
+- `src/services/`：浏览器 IO（行读取、编码检测、ZIP、fflate 打包、下载）。
+- `src/composables/`：文本/漫画扫描、导出状态与消息。
+- `src/components/`：页面展示组件。
+- `src/config/limits.ts`：文件大小、分块与预览数量限制。
 - `vite.config.ts`：Vue、UnoCSS 插件与生产分包配置。
-- `vitest.config.ts`：测试环境配置。
+- `vitest.config.ts`：测试与覆盖率配置。
 
 ## 文件与职责边界
 
 实现阶段必须遵守：
 
-- 页面与交互逻辑集中在 `src/App.vue`；可复用的纯逻辑放到 `src/utils/`。
+- 纯逻辑放到 `src/domain/`，浏览器 IO 放到 `src/services/`，状态编排放到 `src/composables/`；`App.vue` 只负责组合。
 - Epub Generate 只做客户端逻辑，不要引入 Node 专用 API（如 `fs`、`path`、`Buffer`）。
-- 文件读取必须走 `readFileLinesWithEncoding` 之类的流式入口，不要一次性把大文件完整读进内存再按行切分。
+- 文件读取必须走 `readFileLines` 之类的流式入口，不要一次性把大文件完整读进内存再按行切分。
 - 编码支持范围以 `EncodingList` 为准；新增编码必须同时补充别名映射，并确认浏览器 `TextDecoder` 可用。
 - EPUB 结构约定必须保持：
   - `mimetype` 必须是第一个文件且不压缩（`compression: "STORE"`）。
   - 必须包含 `META-INF/container.xml`，并指向 `OEBPS/content.opf`。
-  - 有目录时生成 `OEBPS/toc.ncx` 与 `OEBPS/nav.xhtml`，并在 `content.opf` 中声明。
-  - 无章节匹配的短篇文本按单章「正文」输出，不强行生成空目录。
+  - 始终生成 `OEBPS/toc.ncx` 与 `OEBPS/nav.xhtml`，并在 `content.opf` 中声明。
+  - 无章节匹配的短篇文本按单章「正文」输出；首个标题前的内容记为「前言」。
 - 所有写入 EPUB 的用户内容必须经过 `escapeXml`，禁止把原始输入直接拼进 XHTML/OPF。
 - 漫画图片排序必须保持「先按文件名自然序、再按完整路径」的稳定规则，预览和最终生成不能各写一套。
 - 对象 URL 的生命周期必须显式管理：预览图片使用后要 `URL.revokeObjectURL`，组件卸载时清理。
@@ -159,7 +161,7 @@ pnpm run test         # vitest run
   - 上传 ZIP 后能看到前 20 张图片预览，图片顺序正确。
   - 生成 EPUB 后文件能正常打开，目录与章节/页面数量正确。
   - 切换到无效正则或空文件时有明确提示，不出现未捕获异常。
-- 使用 Playwright MCP 做浏览器验证时，截图与日志统一保存到项目根目录 `.playwright-mcp/<时间>/`；验证完成后关闭浏览器。
+- 每次启动 Playwright MCP 做浏览器验证，都必须新建独立的项目根目录 `.playwright-mcp/<时间>/` 记录目录，并保存截图与日志；之前任何验证目录都是证据，严禁覆盖、更新、删除或移动其中文件。验证完成后关闭浏览器。
 
 ## 文档优先
 
