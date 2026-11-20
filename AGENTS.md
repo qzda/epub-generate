@@ -83,6 +83,9 @@ Epub Generate 是纯前端的本地工具：用户在浏览器里选择文本文
 - `src/config/limits.ts`：文件大小、分块与预览数量限制。
 - `vite.config.ts`：Vue、UnoCSS 插件与生产分包配置。
 - `vitest.config.ts`：测试与覆盖率配置。
+- `README.md`：用户使用说明、命令与支持范围。
+- `docs/ARCHITECTURE.md`：分层边界、数据流、错误模型与确定性约定。
+- `docs/REWRITE-PLAN.md`：重构进度、依赖决策与验证记录。
 
 ## 文件与职责边界
 
@@ -131,6 +134,11 @@ Epub Generate 是纯前端的本地工具：用户在浏览器里选择文本文
 pnpm check
 ```
 
+纯文档改动例外：如果本次只改了 `README.md`、`docs/**`、`AGENTS.md` 等文档，
+没有任何源码、配置、依赖锁文件或构建脚本变动，可以不手动运行 `pnpm check`，
+并在提交说明或回复中注明未运行校验。混合改动仍必须运行完整校验。
+Husky 的 pre-commit 仍会自动执行检查。
+
 `pnpm check` 依次执行：
 
 ```bash
@@ -175,6 +183,7 @@ pnpm run test         # vitest run
 - 文本模式与漫画模式的行为差异。
 - EPUB 输出结构或兼容性说明。
 - 构建、测试、校验命令的变化。
+- 分层边界、数据流或 EPUB 结构的变化，同步更新 `docs/ARCHITECTURE.md`。
 
 重构进度、架构决策和依赖清单以 `docs/REWRITE-PLAN.md` 为准；每完成一个阶段必须同步更新该文档的进度与验证结果。
 

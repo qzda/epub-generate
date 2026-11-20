@@ -1,6 +1,6 @@
 # Epub Generate 重写计划
 
-> 状态：阶段 3 已完成，阶段 4 待开始
+> 状态：阶段 1–5 全部完成
 > 最后更新：2026-11-20
 > 关联文档：[AGENTS.md](../AGENTS.md)
 
@@ -301,9 +301,10 @@ App.vue
   - 退出标准：验收场景全部通过。
   - 完成情况：新增拖拽覆盖提示、读取行数进度、文件大小格式化；Playwright 验证超限/PDF/空 ZIP/无图片提示、快速切换、读取进度 5%→33%、短篇单章与导出结构；19 个测试文件、150 个用例全绿。
 
-- [ ] **阶段 5：文档与收尾**
+- [x] **阶段 5：文档与收尾**
   - 更新 `README.md`、`AGENTS.md`，补充 `docs/ARCHITECTURE.md`。
   - 退出标准：`pnpm check && pnpm build` 通过，浏览器验证完成。
+  - 完成情况：README 补充功能、支持范围、命令与 EPUB 结构；新增架构文档；AGENTS 补充文档维护要求；最终检查与构建通过，Playwright 原生 WebM 录屏验证已完成。
 
 ## 12. 验收标准
 
@@ -335,6 +336,7 @@ App.vue
 | 2026-11-20 | 阶段 3 | 重写 `App.vue` 为组合入口；新增 `useTextSource`（防抖/取消/全文目录）、`useComicSource`（ZIP 预览与 URL 清理）、`useExport`（阶段进度/错误）、`useMessages`；拆出 SourceDropzone、BookMetaForm、TextSettings、TextWorkspace、ComicWorkspace、ExportBar、AppNotice；接入 VueUse 拖拽与文件选择；删除旧 `utils/*`、`types.ts` 与 `jszip`；默认正则改为锚定章节标题；新增 `abort.test.ts` | `pnpm check` 通过；`pnpm test:coverage` 19 文件 149 用例全绿；Playwright 验证 UTF-8/GBK 文本与漫画 ZIP 预览、导出结构、非法正则与无图片错误；截图与 EPUB 保存在 `.playwright-mcp/2026-11-20T13-03/` |
 | 2026-11-20 | UI 重构 | 选定方案 B「卡片工作台」；重做顶栏、Hero、左设置卡与右预览卡；文本预览增加「预览 / 目录」切换和章节 chips；漫画预览改为卡片网格；更新主题色与 UnoCSS 快捷类；保留顶部居中消息组件；补齐 Hero 与拖拽区间距，支持系统暗色模式 | `pnpm check`、`pnpm build` 通过；Playwright 验证桌面/移动空状态、文本预览、目录切换、漫画预览与导出；浅色/暗色截图保存在 `.playwright-mcp/2026-11-20T13-20/` 与 `.playwright-mcp/2026-11-20T13-44/` |
 | 2026-11-20 | 阶段 4 | 新增拖拽覆盖提示、`readTextChapters` 读取行数进度、文件大小 B/KB/MB 格式化；补充进度单元测试；完成验收场景：超限、PDF、空 ZIP、无图片 ZIP、快速切换、进度、短篇单章、导出结构 | `pnpm check`、`pnpm build` 通过；19 文件 150 用例全绿；Playwright 截图/EPUB/快照/日志保存在 `.playwright-mcp/2026-11-20T14-13/` |
+| 2026-11-20 | 阶段 5 | 重写 README（功能、支持范围、命令、EPUB 结构、部署）；新增 `docs/ARCHITECTURE.md`（分层、数据流、错误模型、取消、确定性、测试）；AGENTS 补充文档维护要求；最终检查与构建 | `pnpm check`、`pnpm build` 通过；Playwright 原生 WebM 录屏与文本/漫画导出验证保存在 `.playwright-mcp/2026-11-20T14-58/` |
 
 ## 15. 维护约定
 
