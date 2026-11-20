@@ -488,6 +488,7 @@
 
       <SourceDropzone
         v-else
+        class="mt-5"
         :active="isOverDropZone"
         :disabled="isGenerating"
         @pick="pickFile"
@@ -749,6 +750,37 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .studio-page {
+      background:
+        radial-gradient(900px 500px at 85% -10%, rgba(96, 140, 255, 0.14), transparent 60%),
+        radial-gradient(700px 400px at 0% 10%, rgba(60, 90, 160, 0.16), transparent 55%),
+        var(--background);
+    }
+
+    .hero {
+      border-color: var(--border);
+      background: linear-gradient(
+        120deg,
+        rgba(19, 29, 46, 0.96),
+        rgba(15, 23, 37, 0.92)
+      );
+      box-shadow: 0 30px 70px -55px rgba(0, 0, 0, 0.8);
+    }
+
+    .hero::after {
+      background: radial-gradient(circle, rgba(96, 140, 255, 0.18), transparent 65%);
+    }
+
+    .file-chip {
+      background: linear-gradient(180deg, var(--panel-muted), var(--panel));
+    }
+
+    .section-title {
+      color: var(--muted);
     }
   }
 

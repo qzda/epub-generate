@@ -100,7 +100,7 @@
         transparent 88%,
         rgba(47, 99, 233, 0.035) 100%
       ),
-      #fff;
+      var(--panel);
   }
 
   .comic-grid {
@@ -127,7 +127,7 @@
     overflow: hidden;
     border: 1px solid var(--border);
     border-radius: 14px;
-    background: #f7faff;
+    background: var(--panel-muted);
   }
 
   img {
@@ -135,7 +135,7 @@
     width: 100%;
     height: 168px;
     object-fit: cover;
-    background: #eaf1fb;
+    background: var(--panel-muted);
   }
 
   figcaption {
@@ -150,7 +150,7 @@
 
   figcaption b {
     overflow: hidden;
-    color: #52637c;
+    color: var(--muted);
     font-weight: 500;
     text-overflow: ellipsis;
     white-space: nowrap;

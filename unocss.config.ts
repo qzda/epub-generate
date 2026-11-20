@@ -34,8 +34,8 @@ export default defineConfig({
     "studio-panel":
       "bg-[var(--panel)] border border-studio-line rounded-[20px] overflow-hidden shadow-[0_26px_60px_-50px_rgba(21,34,56,0.4)]",
     "studio-input":
-      "w-full h-[42px] px-3 rounded-[11px] border border-studio-line bg-[#fbfdff] text-studio-text text-[13px] outline-none transition-[border-color,box-shadow] duration-150 focus:border-studio-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]",
-    "studio-label": "text-[12px] font-600 text-[#52637c]",
+      "w-full h-[42px] px-3 rounded-[11px] border border-studio-line bg-[var(--panel-muted)] text-studio-text text-[13px] outline-none transition-[border-color,box-shadow] duration-150 focus:border-studio-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]",
+    "studio-label": "text-[12px] font-600 text-studio-muted",
     "studio-note": "m-0 text-[11px] leading-[1.5] text-studio-muted",
     "studio-panel-head":
       "flex justify-between items-center gap-3 px-5 py-4 border-b border-studio-line",

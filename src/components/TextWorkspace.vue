@@ -166,7 +166,7 @@
     padding: 3px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: #f6f9ff;
+    background: var(--panel-muted);
   }
 
   .segmented button {
@@ -182,7 +182,7 @@
   }
 
   .segmented button.active {
-    background: #fff;
+    background: var(--panel);
     color: var(--accent);
     box-shadow: 0 4px 12px -8px rgba(21, 34, 56, 0.5);
   }
@@ -204,8 +204,8 @@
     padding: 6px 10px;
     border: 1px solid var(--border);
     border-radius: 999px;
-    background: #fbfdff;
-    color: #52637c;
+    background: var(--panel-muted);
+    color: var(--muted);
     font: inherit;
     font-size: 11px;
     cursor: pointer;
@@ -235,7 +235,7 @@
         transparent 88%,
         rgba(47, 99, 233, 0.035) 100%
       ),
-      #fff;
+      var(--panel);
   }
 
   .book-title {
@@ -252,7 +252,7 @@
 
   .line {
     margin: 0;
-    color: #334259;
+    color: var(--foreground);
     font-size: 13.5px;
     line-height: 2;
     white-space: pre-wrap;

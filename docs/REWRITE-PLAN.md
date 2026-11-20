@@ -199,6 +199,8 @@ App.vue
 - 卡片圆角 20px，输入框 11px，按钮 12px；主按钮使用蓝色渐变。
 - 顶部 Hero 使用浅色渐变与柔和光斑，保持单页工作台结构。
 - 消息组件保持顶部居中原样式。
+- 跟随系统 `prefers-color-scheme` 自动切换浅色/暗色，颜色统一走 CSS 变量。
+- Hero 与拖拽区之间保留 20px 间距，避免卡片粘连。
 
 体验要求：
 
@@ -330,7 +332,7 @@ App.vue
 | 2026-11-20 | 阶段 1 | 完成 `src/domain/`：Result/错误码、书籍元数据、编码别名、流式分章器、漫画排序、EPUB 文档与纯函数 builder；抽取 `epub/scaffold.ts` 统一文本/漫画固定文件序列；新增 `result.test.ts` 与捕获组分章用例；安装 `@vitest/coverage-v8`，`test` 改为 `vitest run`，新增 `test:coverage` 并按文件校验 90% 阈值；ESLint 忽略 `coverage/` | `pnpm check` 通过；`pnpm test:coverage` 10 文件 86 用例全绿，domain 行覆盖 99.2%、分支 98.63% |
 | 2026-11-20 | 阶段 2 | 完成 `src/services/`：`readFileLines`（CRLF/CR/LF、跨块多字节、BOM、取消）、`detectTextEncoding`（chardet + 回退标记）、`scanTextSource`/`readTextChapters`、`readComicSource`（ZIP 签名、自然序、预览 URL、dispose）、`packEpub`（fflate、mimetype STORE、固定 mtime、进度、取消）、`downloadBlob`；新增 `config/limits.ts` 与 `services/abort.ts`；安装 `fflate`，覆盖率纳入 services 并保留 domain 按文件 90% 阈值 | `pnpm check` 通过；`pnpm test:coverage` 18 文件 146 用例全绿，services 行覆盖 99.37%、分支 98.83%，全局行覆盖 99.42% |
 | 2026-11-20 | 阶段 3 | 重写 `App.vue` 为组合入口；新增 `useTextSource`（防抖/取消/全文目录）、`useComicSource`（ZIP 预览与 URL 清理）、`useExport`（阶段进度/错误）、`useMessages`；拆出 SourceDropzone、BookMetaForm、TextSettings、TextWorkspace、ComicWorkspace、ExportBar、AppNotice；接入 VueUse 拖拽与文件选择；删除旧 `utils/*`、`types.ts` 与 `jszip`；默认正则改为锚定章节标题；新增 `abort.test.ts` | `pnpm check` 通过；`pnpm test:coverage` 19 文件 149 用例全绿；Playwright 验证 UTF-8/GBK 文本与漫画 ZIP 预览、导出结构、非法正则与无图片错误；截图与 EPUB 保存在 `.playwright-mcp/2026-11-20T13-03/` |
-| 2026-11-20 | UI 重构 | 选定方案 B「卡片工作台」；重做顶栏、Hero、左设置卡与右预览卡；文本预览增加「预览 / 目录」切换和章节 chips；漫画预览改为卡片网格；更新主题色与 UnoCSS 快捷类；保留顶部居中消息组件 | `pnpm check`、`pnpm build` 通过；Playwright 验证桌面/移动空状态、文本预览、目录切换、漫画预览与导出；截图保存在 `.playwright-mcp/2026-11-20T13-20/` |
+| 2026-11-20 | UI 重构 | 选定方案 B「卡片工作台」；重做顶栏、Hero、左设置卡与右预览卡；文本预览增加「预览 / 目录」切换和章节 chips；漫画预览改为卡片网格；更新主题色与 UnoCSS 快捷类；保留顶部居中消息组件；补齐 Hero 与拖拽区间距，支持系统暗色模式 | `pnpm check`、`pnpm build` 通过；Playwright 验证桌面/移动空状态、文本预览、目录切换、漫画预览与导出；浅色/暗色截图保存在 `.playwright-mcp/2026-11-20T13-20/` 与 `.playwright-mcp/2026-11-20T13-44/` |
 
 ## 15. 维护约定
 
