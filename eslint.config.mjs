@@ -5,7 +5,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig([
-  globalIgnores(["dist/**"]),
+  globalIgnores(["dist/**", "coverage/**"]),
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs["flat/strongly-recommended"],

@@ -10,8 +10,9 @@
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
     "typecheck": "vue-tsc -b",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "check": "pnpm run lint:check && pnpm run typecheck && pnpm run test",
     "prepare": "husky"
   },
@@ -25,6 +26,7 @@
     "@eslint/js": "^10.0.1",
     "@iconify-json/carbon": "^1.2.13",
     "@vitejs/plugin-vue": "^6.0.1",
+    "@vitest/coverage-v8": "^5.1.1",
     "@vue/tsconfig": "^0.7.0",
     "eslint": "^10.15.0",
     "eslint-plugin-vue": "^10.12.1",

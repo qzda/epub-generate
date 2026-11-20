@@ -1,6 +1,6 @@
 # Epub Generate 重写计划
 
-> 状态：计划已定稿，尚未开始实施
+> 状态：阶段 1 已完成，阶段 2 待开始
 > 最后更新：2026-11-20
 > 关联文档：[AGENTS.md](../AGENTS.md)
 
@@ -70,6 +70,7 @@ src/
 │     ├─ xml.ts                # escapeXml
 │     ├─ documents.ts          # 章节页、漫画页、nav.xhtml、toc.ncx
 │     ├─ package.ts            # content.opf、container.xml、style.css
+│     ├─ scaffold.ts           # 共用固定文件序列与 OPF/nav/ncx 装配
 │     ├─ build-text.ts         # buildTextEpub(meta, chapters, id, modifiedAt)
 │     └─ build-comic.ts        # buildComicEpub(meta, pages, id, modifiedAt)
 ├─ services/                   # 浏览器 IO，薄适配层
@@ -128,6 +129,7 @@ type AppErrorCode =
   | "INVALID_PATTERN"
   | "EMPTY_ARCHIVE"
   | "NO_IMAGES"
+  | "NO_CHAPTERS"
   | "PACK_FAILED";
 ```
 
@@ -142,9 +144,12 @@ type AppErrorCode =
   - 先按 basename 自然序（`Intl.Collator("zh-CN", { numeric: true, sensitivity: "base" })`），再按完整路径。
 - `normalizeEncodingName(raw)` / `isSupportedEncoding(name)`
 - `sanitizeEpubFileName(name): string`
+- `buildEpubScaffold`（`epub/scaffold.ts`）
+  - 文本与漫画共用，集中生成固定文件序列，避免两套 builder 各写一遍。
+  - 顺序：`mimetype`（STORE）→ `META-INF/container.xml` → `OEBPS/content.opf` → `nav.xhtml` → `toc.ncx` → `style.css`。
 - `buildTextEpub` / `buildComicEpub`
   - 接收注入的 `id` 和 `modifiedAt`，输出确定性的 `EpubEntry[]`。
-  - 固定顺序：`mimetype`（STORE）→ `META-INF/container.xml` → `OEBPS/content.opf` → `nav.xhtml` → `toc.ncx` → `style.css` → 章节/页面。
+  - 先调用 `buildEpubScaffold`，再追加章节 XHTML 或页面 XHTML + 图片。
   - 所有用户文本经过 `escapeXml`。
   - 无论是否有章节都生成 `nav.xhtml`。
 
@@ -251,10 +256,11 @@ App.vue
   - 完成架构、依赖、测试策略确认。
   - 本文档建立。
 
-- [ ] **阶段 1：领域层 + 测试**
+- [x] **阶段 1：领域层 + 测试**
   - 实现 `domain/` 全部纯函数与单元测试。
   - 不接 UI，不修改现有页面。
   - 退出标准：domain 测试全绿，覆盖率 ≥ 90%。
+  - 完成情况：10 个测试文件、86 个用例全绿；domain 覆盖率行 99.2%、分支 98.63%，按文件阈值 90% 校验通过。
 
 - [ ] **阶段 2：服务层 + 测试**
   - 实现行读取、编码检测、全文扫描、ZIP 读取、fflate 打包、下载。
@@ -297,6 +303,7 @@ App.vue
 | 日期 | 阶段 | 内容 | 验证 |
 | --- | --- | --- | --- |
 | 2026-11-20 | 阶段 0 | 架构、依赖、测试策略定稿；计划文档建立 | — |
+| 2026-11-20 | 阶段 1 | 完成 `src/domain/`：Result/错误码、书籍元数据、编码别名、流式分章器、漫画排序、EPUB 文档与纯函数 builder；抽取 `epub/scaffold.ts` 统一文本/漫画固定文件序列；新增 `result.test.ts` 与捕获组分章用例；安装 `@vitest/coverage-v8`，`test` 改为 `vitest run`，新增 `test:coverage` 并按文件校验 90% 阈值；ESLint 忽略 `coverage/` | `pnpm check` 通过；`pnpm test:coverage` 10 文件 86 用例全绿，domain 行覆盖 99.2%、分支 98.63% |
 
 ## 15. 维护约定
 
