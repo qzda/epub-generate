@@ -13,7 +13,7 @@
     if (regexText.value) {
       try {
         return new RegExp(regexText.value);
-      } catch (error) {
+      } catch {
         return undefined;
       }
     }
@@ -331,10 +331,11 @@
             class="studio-input cursor-pointer"
           >
             <option
-              v-for="encoding in EncodingList"
-              :value="encoding"
+              v-for="encodingOption in EncodingList"
+              :key="encodingOption"
+              :value="encodingOption"
             >
-              {{ encoding }}
+              {{ encodingOption }}
             </option>
           </select>
           <p class="studio-note">自动检测: {{ encoding }}</p>

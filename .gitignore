@@ -28,3 +28,9 @@ dist
 node_modules
 bun.lock
 tsconfig.tsbuildinfo
+
+# Playwright MCP verification artifacts
+.playwright-mcp/
+
+# Test coverage
+coverage

@@ -1,0 +1,4 @@
+set -e
+
+pnpm run check
+pnpm exec lint-staged
