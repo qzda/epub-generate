@@ -83,6 +83,7 @@ Epub Generate 是纯前端的本地工具：用户在浏览器里选择文本文
 - `src/config/limits.ts`：文件大小、分块与预览数量限制。
 - `vite.config.ts`：Vue、UnoCSS 插件与生产分包配置。
 - `vitest.config.ts`：测试与覆盖率配置。
+- `netlify.toml`：Netlify 构建、缓存与安全头配置。
 - `README.md`：用户使用说明、命令与支持范围。
 - `docs/ARCHITECTURE.md`：分层边界、数据流、错误模型与确定性约定。
 - `docs/REWRITE-PLAN.md`：重构进度、依赖决策与验证记录。

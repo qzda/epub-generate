@@ -129,7 +129,16 @@ pnpm check
 pnpm build
 ```
 
-将 `dist/` 部署到 Netlify 或任意静态托管即可。项目不需要环境变量、服务端函数或数据库。
+仓库包含 `netlify.toml`：
+
+- 构建命令：`pnpm build`
+- 发布目录：`dist`
+- Node.js 22 + pnpm 12.6.0
+- 带哈希的 `assets/*` 长期缓存，`index.html` 每次重新验证
+- 已配置 CSP、`X-Content-Type-Options`、`Referrer-Policy`、`Permissions-Policy`
+- `netlify dev` 会代理到 Vite 的 5173 端口，本地入口为 8888
+
+项目不需要环境变量、服务端函数或数据库。
 
 ## 非目标
 
