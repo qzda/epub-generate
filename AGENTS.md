@@ -150,7 +150,7 @@ pnpm run test         # vitest run
 
 ## 测试与验证
 
-- 测试使用 Vitest（Node 环境），当前已覆盖 `src/domain/**`；领域层按文件要求行/分支/函数/语句覆盖率 ≥ 90%。
+- 测试使用 Vitest（Node 环境），当前覆盖 `src/domain/**` 与 `src/services/**`；领域层按文件要求行/分支/函数/语句覆盖率 ≥ 90%，服务层重点路径全覆盖并纳入全局阈值。
 - 新增测试时优先覆盖：编码检测与别名归一化、分块读取行、章节切分、漫画图片排序、EPUB 结构生成。
 - 常用命令：`pnpm test`、`pnpm test:coverage`、`pnpm test:watch`。
 - 涉及交互或浏览器行为时，应验证：

@@ -8,9 +8,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vue: ["vue"],
-          tools: ["jszip", "chardet"],
+        manualChunks(id) {
+          // 所有第三方依赖统一进 vendor，业务代码仍按入口拆分。
+          if (id.includes("node_modules")) {
+            return "vendor";
+          }
         },
       },
     },

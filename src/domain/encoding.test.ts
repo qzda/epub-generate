@@ -17,7 +17,10 @@ describe("normalizeEncodingName", () => {
     expect(normalizeEncodingName("utf8")).toBe("utf-8");
     expect(normalizeEncodingName(" GB2312 ")).toBe("gbk");
     expect(normalizeEncodingName("cp936")).toBe("gbk");
-    expect(normalizeEncodingName("cp936")).toBe("gbk");
+    expect(normalizeEncodingName("ASCII")).toBe("utf-8");
+    expect(normalizeEncodingName("us-ascii")).toBe("utf-8");
+    expect(normalizeEncodingName("latin1")).toBe("iso-8859-1");
+    expect(normalizeEncodingName("cp1252")).toBe("windows-1252");
     expect(normalizeEncodingName("UTF-16")).toBe("utf-16le");
     expect(normalizeEncodingName("utf16be")).toBe("utf-16be");
     expect(normalizeEncodingName("Shift_JIS")).toBe("shift_jis");

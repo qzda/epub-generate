@@ -1,6 +1,6 @@
 # Epub Generate 重写计划
 
-> 状态：阶段 1 已完成，阶段 2 待开始
+> 状态：阶段 2 已完成，阶段 3 待开始
 > 最后更新：2026-11-20
 > 关联文档：[AGENTS.md](../AGENTS.md)
 
@@ -74,9 +74,11 @@ src/
 │     ├─ build-text.ts         # buildTextEpub(meta, chapters, id, modifiedAt)
 │     └─ build-comic.ts        # buildComicEpub(meta, pages, id, modifiedAt)
 ├─ services/                   # 浏览器 IO，薄适配层
+│  ├─ abort.ts                 # AbortSignal 检查与 AbortError
+│  ├─ binary.ts                # Uint8Array → BlobPart，兼容 SharedArrayBuffer
 │  ├─ line-reader.ts           # File + 编码 → 异步行流
 │  ├─ encoding-detect.ts       # chardet 适配，返回检测结果与回退标记
-│  ├─ text-source.ts           # 全文扫描：预览行、章节索引、总行数
+│  ├─ text-source.ts           # 全文扫描：预览行、章节索引、总行数；导出用章节读取
 │  ├─ comic-source.ts          # 读取 ZIP、图片清单、预览 URL、清理
 │  ├─ epub-pack.ts             # EpubEntry[] → Blob（fflate）
 │  └─ download.ts              # Blob 下载与 URL 释放
@@ -164,9 +166,13 @@ type AppErrorCode =
 - `readComicSource(file, { previewLimit, signal })`
   - 校验 ZIP 签名（`PK\x03\x04`），过滤目录和非图片。
   - 返回图片清单、前 20 张预览 blob URL 和 `dispose()`。
+- `readTextChapters(file, encoding, regex, { signal })`
+  - 为导出保留章节正文，与预览共用同一个分章器和行读取器。
 - `packEpub(entries, { onProgress, signal })`
   - 唯一接触 `fflate` 的地方。
-  - 固定 `mtime`，保证相同输入产物稳定。
+  - 使用非流式 `zip`，保证 `mimetype` 的本地文件头包含真实大小、无 data descriptor。
+  - 固定 `mtime`，保证相同输入产物稳定；进度按准备阶段（0 → 0.2）与完成（1）上报。
+  - 压缩中取消会通过 `AbortSignal` 立即拒绝。
 - `downloadBlob(blob, fileName)`
   - `<a download>` + `URL.revokeObjectURL`，放在 `try/finally`。
 
@@ -204,8 +210,8 @@ App.vue
 
 依赖变化：
 
-- 新增运行时：`fflate`、`@vueuse/core`
-- 移除运行时：`jszip`
+- 新增运行时：`fflate`（阶段 2 已安装）、`@vueuse/core`（阶段 3 安装）
+- 移除运行时：`jszip`（阶段 3 删除旧 `utils/epub.ts` 时移除，当前仍被旧代码引用）
 - 新增开发依赖：`@vitest/coverage-v8`
 - 保留：`vue`、`chardet`
 
@@ -238,16 +244,20 @@ App.vue
 | `package.test.ts` | opf manifest 数量/spine 顺序、漫画 `rendition`、language |
 | `build-text.test.ts` | mimetype 第一且 STORE、必需路径、章节数量、单章回退、确定性 |
 | `build-comic.test.ts` | 图片/页面/清单一致、MIME 类型、空图片输入报错 |
-| `line-reader.test.ts` | 跨 64KB 多字节字符、CRLF/CR/LF、BOM、空文件、非法编码、取消 |
-| `encoding-detect.test.ts` | GBK/UTF-8 字节检测、失败回退标记 |
-| `text-source.test.ts` | 全文索引与预览一致、扫描可取消 |
-| `epub-pack.test.ts` | fflate 解包校验内容、mimetype 顺序与压缩方式、进度回调、固定 mtime |
+| `line-reader.test.ts` | 跨分块多字节字符、CRLF/CR/LF、BOM、空文件、非法编码、取消 |
+| `encoding-detect.test.ts` | GBK/UTF-8/ASCII 检测、失败回退标记、sniffSize |
+| `text-source.test.ts` | 全文索引与预览一致、章节正文、扫描可取消 |
+| `comic-source.test.ts` | ZIP 校验、自然序、预览数量、URL 清理、空包与无图片 |
+| `epub-pack.test.ts` | 解包校验内容、mimetype 顺序与压缩方式、进度、确定性、取消 |
+| `epub-pack.errors.test.ts` | 压缩中取消、fflate 回调/同步异常 |
+| `download.test.ts` | 链接创建、点击、异常时 URL 释放、默认全局依赖 |
+| `binary.test.ts` | ArrayBuffer 视图零拷贝、SharedArrayBuffer 视图复制 |
 
 要求：
 
 - `pnpm test` 恢复为 `vitest run`。
 - 新增 `test:coverage`。
-- `src/domain/**` 覆盖率 ≥ 90%（行/分支）；`src/services/**` 重点路径全部覆盖。
+- `src/domain/**` 按文件行/分支/函数/语句 ≥ 90%；`src/services/**` 重点路径全部覆盖并纳入全局阈值。
 - 不做组件测试；交互用 Playwright MCP 验证，截图与日志保存到 `.playwright-mcp/<时间>/`，验证后关闭浏览器。
 
 ## 11. 实施阶段
@@ -262,9 +272,10 @@ App.vue
   - 退出标准：domain 测试全绿，覆盖率 ≥ 90%。
   - 完成情况：10 个测试文件、86 个用例全绿；domain 覆盖率行 99.2%、分支 98.63%，按文件阈值 90% 校验通过。
 
-- [ ] **阶段 2：服务层 + 测试**
+- [x] **阶段 2：服务层 + 测试**
   - 实现行读取、编码检测、全文扫描、ZIP 读取、fflate 打包、下载。
   - 退出标准：服务层测试全绿，可取消、可报告进度。
+  - 完成情况：18 个测试文件、146 个用例全绿；services 行覆盖 99.37%、分支 98.83%，全局行覆盖 99.42%。
 
 - [ ] **阶段 3：composables + 组件**
   - 接入 VueUse，拆分组件，删除旧 `src/utils/*`。
@@ -304,6 +315,7 @@ App.vue
 | --- | --- | --- | --- |
 | 2026-11-20 | 阶段 0 | 架构、依赖、测试策略定稿；计划文档建立 | — |
 | 2026-11-20 | 阶段 1 | 完成 `src/domain/`：Result/错误码、书籍元数据、编码别名、流式分章器、漫画排序、EPUB 文档与纯函数 builder；抽取 `epub/scaffold.ts` 统一文本/漫画固定文件序列；新增 `result.test.ts` 与捕获组分章用例；安装 `@vitest/coverage-v8`，`test` 改为 `vitest run`，新增 `test:coverage` 并按文件校验 90% 阈值；ESLint 忽略 `coverage/` | `pnpm check` 通过；`pnpm test:coverage` 10 文件 86 用例全绿，domain 行覆盖 99.2%、分支 98.63% |
+| 2026-11-20 | 阶段 2 | 完成 `src/services/`：`readFileLines`（CRLF/CR/LF、跨块多字节、BOM、取消）、`detectTextEncoding`（chardet + 回退标记）、`scanTextSource`/`readTextChapters`、`readComicSource`（ZIP 签名、自然序、预览 URL、dispose）、`packEpub`（fflate、mimetype STORE、固定 mtime、进度、取消）、`downloadBlob`；新增 `config/limits.ts` 与 `services/abort.ts`；安装 `fflate`，覆盖率纳入 services 并保留 domain 按文件 90% 阈值 | `pnpm check` 通过；`pnpm test:coverage` 18 文件 146 用例全绿，services 行覆盖 99.37%、分支 98.83%，全局行覆盖 99.42% |
 
 ## 15. 维护约定
 

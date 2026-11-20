@@ -76,7 +76,7 @@ export function compareComicPaths(a: string, b: string): number {
 export function orderImageEntries(paths: readonly string[]): string[] {
   return paths
     .filter((path) => !isDirectoryPath(path) && isImagePath(path))
-    .toSorted(compareComicPaths);
+    .sort(compareComicPaths);
 }
 
 export function collectComicImages(paths: readonly string[]): ComicImage[] {

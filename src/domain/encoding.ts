@@ -31,6 +31,8 @@ export type TextEncoding = (typeof EncodingList)[number];
 export const DEFAULT_ENCODING: TextEncoding = "utf-8";
 
 const EncodingAliasMap: Record<string, TextEncoding> = {
+  ascii: "utf-8",
+  "us-ascii": "utf-8",
   utf8: "utf-8",
   "utf-8": "utf-8",
   utf16: "utf-16le",
@@ -41,6 +43,10 @@ const EncodingAliasMap: Record<string, TextEncoding> = {
   "utf-16be": "utf-16be",
   gb2312: "gbk",
   gbk: "gbk",
+  latin1: "iso-8859-1",
+  cp1250: "windows-1250",
+  cp1251: "windows-1251",
+  cp1252: "windows-1252",
   gb18030: "gb18030",
   cp936: "gbk",
   big5: "big5",
