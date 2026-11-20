@@ -5,6 +5,12 @@ import UnoCSS from "unocss/vite";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), UnoCSS()],
+  server: {
+    watch: {
+      // 覆盖率报告是测试产物，不应触发开发服务器热更新。
+      ignored: ["**/coverage/**"],
+    },
+  },
   build: {
     rollupOptions: {
       output: {

@@ -145,6 +145,16 @@
     return candidate.name.replace(/\.[^/.]+$/, "").trim();
   }
 
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(2)} KB`;
+    }
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  }
+
   function errorText(cause: unknown, fallback: string): string {
     return cause instanceof Error && cause.message
       ? cause.message
@@ -282,6 +292,7 @@
     const currentEncoding = encoding.value;
     const currentPattern = pattern.value;
     const currentImages = comicImages.value;
+    const expectedTotalLines = Math.max(1, totalLines.value);
     const meta = createBookMeta({
       title: bookTitle.value,
       author: bookAuthor.value,
@@ -302,7 +313,16 @@
           currentFile,
           currentEncoding,
           compiled.value,
-          { signal }
+          {
+            signal,
+            onProgress: (processed) => {
+              const readRatio = Math.min(
+                1,
+                processed / expectedTotalLines
+              );
+              report("reading", 0.05 + readRatio * 0.5);
+            },
+          }
         );
         report("building", 0.6);
 
@@ -419,6 +439,22 @@
         @dismiss="dismiss"
       />
 
+      <Transition name="drop-fade">
+        <div
+          v-if="file && isOverDropZone"
+          class="drop-overlay"
+          aria-hidden="true"
+        >
+          <div class="drop-overlay-card">
+            <span class="drop-overlay-icon">
+              <i class="i-carbon:download text-[26px]" />
+            </span>
+            <strong>松开鼠标导入新文件</strong>
+            <span>当前文件与设置会被替换</span>
+          </div>
+        </div>
+      </Transition>
+
       <section
         v-if="file"
         class="workspace"
@@ -431,7 +467,7 @@
             <div class="min-w-0">
               <b>{{ file.name }}</b>
               <span>
-                {{ (file.size / 1024).toFixed(2) }} KB ·
+                {{ formatFileSize(file.size) }} ·
                 {{ mode === "text" ? "文本模式" : "漫画模式" }}
               </span>
             </div>
@@ -738,6 +774,62 @@
     text-decoration: underline;
   }
 
+  .drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.18);
+    backdrop-filter: blur(2px);
+    pointer-events: none;
+  }
+
+  .drop-overlay-card {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    min-width: 260px;
+    padding: 28px 36px;
+    border: 2px dashed var(--accent);
+    border-radius: 24px;
+    background: var(--panel);
+    box-shadow: 0 30px 70px -35px rgba(21, 34, 56, 0.55);
+    text-align: center;
+  }
+
+  .drop-overlay-icon {
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    margin-bottom: 4px;
+    border-radius: 16px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .drop-overlay-card strong {
+    color: var(--foreground);
+    font-size: 16px;
+  }
+
+  .drop-overlay-card > span:last-child {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .drop-fade-enter-active,
+  .drop-fade-leave-active {
+    transition: opacity 150ms ease;
+  }
+
+  .drop-fade-enter-from,
+  .drop-fade-leave-to {
+    opacity: 0;
+  }
+
   .rise-in {
     animation: rise 420ms ease-out;
   }
@@ -781,6 +873,10 @@
 
     .section-title {
       color: var(--muted);
+    }
+
+    .drop-overlay {
+      background: rgba(0, 0, 0, 0.42);
     }
   }
 

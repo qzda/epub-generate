@@ -296,9 +296,10 @@ App.vue
   - 退出标准：页面功能等价，`pnpm check` 通过。
   - 完成情况：接入 `useDropZone`、`useFileDialog`、`watchDebounced`；拆出 7 个组件与 4 个 composable；删除旧 `utils/*`、`types.ts` 与 `jszip`；19 个测试文件、149 个用例全绿，构建成功。
 
-- [ ] **阶段 4：体验补齐**
+- [x] **阶段 4：体验补齐**
   - 拖拽上传、全文目录、错误提示、原生进度条、文件名修复。
   - 退出标准：验收场景全部通过。
+  - 完成情况：新增拖拽覆盖提示、读取行数进度、文件大小格式化；Playwright 验证超限/PDF/空 ZIP/无图片提示、快速切换、读取进度 5%→33%、短篇单章与导出结构；19 个测试文件、150 个用例全绿。
 
 - [ ] **阶段 5：文档与收尾**
   - 更新 `README.md`、`AGENTS.md`，补充 `docs/ARCHITECTURE.md`。
@@ -306,14 +307,14 @@ App.vue
 
 ## 12. 验收标准
 
-- [ ] `pnpm check` 全绿，`pnpm build` 成功。
-- [ ] UTF-8 TXT、GBK TXT、无章节短篇、多图片 ZIP 均能生成可打开且目录正确的 EPUB。
-- [ ] `mimetype` 是 ZIP 第一个文件，未压缩，无 extra field。
-- [ ] 文本 EPUB 的目录数量、章节正文与预览一致。
-- [ ] 漫画 EPUB 图片顺序与预览一致，MIME 类型正确。
-- [ ] 非法正则、超限文件、空 ZIP、非图片 ZIP、未知编码均有明确提示。
-- [ ] 快速切换文件或修改正则不会出现旧结果回写。
-- [ ] 生成过程有可见进度，完成后有状态播报。
+- [x] `pnpm check` 全绿，`pnpm build` 成功。
+- [x] UTF-8 TXT、GBK TXT、无章节短篇、多图片 ZIP 均能生成可打开且目录正确的 EPUB。
+- [x] `mimetype` 是 ZIP 第一个文件，未压缩，无 extra field。
+- [x] 文本 EPUB 的目录数量、章节正文与预览一致。
+- [x] 漫画 EPUB 图片顺序与预览一致，MIME 类型正确。
+- [x] 非法正则、超限文件、空 ZIP、非图片 ZIP、未知编码均有明确提示。
+- [x] 快速切换文件或修改正则不会出现旧结果回写。
+- [x] 生成过程有可见进度，完成后有状态播报。
 
 ## 13. 非目标
 
@@ -333,6 +334,7 @@ App.vue
 | 2026-11-20 | 阶段 2 | 完成 `src/services/`：`readFileLines`（CRLF/CR/LF、跨块多字节、BOM、取消）、`detectTextEncoding`（chardet + 回退标记）、`scanTextSource`/`readTextChapters`、`readComicSource`（ZIP 签名、自然序、预览 URL、dispose）、`packEpub`（fflate、mimetype STORE、固定 mtime、进度、取消）、`downloadBlob`；新增 `config/limits.ts` 与 `services/abort.ts`；安装 `fflate`，覆盖率纳入 services 并保留 domain 按文件 90% 阈值 | `pnpm check` 通过；`pnpm test:coverage` 18 文件 146 用例全绿，services 行覆盖 99.37%、分支 98.83%，全局行覆盖 99.42% |
 | 2026-11-20 | 阶段 3 | 重写 `App.vue` 为组合入口；新增 `useTextSource`（防抖/取消/全文目录）、`useComicSource`（ZIP 预览与 URL 清理）、`useExport`（阶段进度/错误）、`useMessages`；拆出 SourceDropzone、BookMetaForm、TextSettings、TextWorkspace、ComicWorkspace、ExportBar、AppNotice；接入 VueUse 拖拽与文件选择；删除旧 `utils/*`、`types.ts` 与 `jszip`；默认正则改为锚定章节标题；新增 `abort.test.ts` | `pnpm check` 通过；`pnpm test:coverage` 19 文件 149 用例全绿；Playwright 验证 UTF-8/GBK 文本与漫画 ZIP 预览、导出结构、非法正则与无图片错误；截图与 EPUB 保存在 `.playwright-mcp/2026-11-20T13-03/` |
 | 2026-11-20 | UI 重构 | 选定方案 B「卡片工作台」；重做顶栏、Hero、左设置卡与右预览卡；文本预览增加「预览 / 目录」切换和章节 chips；漫画预览改为卡片网格；更新主题色与 UnoCSS 快捷类；保留顶部居中消息组件；补齐 Hero 与拖拽区间距，支持系统暗色模式 | `pnpm check`、`pnpm build` 通过；Playwright 验证桌面/移动空状态、文本预览、目录切换、漫画预览与导出；浅色/暗色截图保存在 `.playwright-mcp/2026-11-20T13-20/` 与 `.playwright-mcp/2026-11-20T13-44/` |
+| 2026-11-20 | 阶段 4 | 新增拖拽覆盖提示、`readTextChapters` 读取行数进度、文件大小 B/KB/MB 格式化；补充进度单元测试；完成验收场景：超限、PDF、空 ZIP、无图片 ZIP、快速切换、进度、短篇单章、导出结构 | `pnpm check`、`pnpm build` 通过；19 文件 150 用例全绿；Playwright 截图/EPUB/快照/日志保存在 `.playwright-mcp/2026-11-20T14-13/` |
 
 ## 15. 维护约定
 

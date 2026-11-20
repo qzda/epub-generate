@@ -95,6 +95,19 @@ describe("readTextChapters", () => {
     expect(chapters[1].paragraphs).toEqual(["正文一", "正文二"]);
   });
 
+  it("按已处理行数报告进度", async () => {
+    const lines = Array.from({ length: 450 }, (_, index) => `第${index + 1}行`);
+    const progress: number[] = [];
+
+    await readTextChapters(blobOf(lines.join("\n")), "utf-8", /^第.+章/, {
+      onProgress: (processed) => progress.push(processed),
+    });
+
+    expect(progress.length).toBeGreaterThan(1);
+    expect(progress.at(-1)).toBe(450);
+    expect(progress).toEqual([...progress].sort((a, b) => a - b));
+  });
+
   it("支持取消", async () => {
     const controller = new AbortController();
     controller.abort();
