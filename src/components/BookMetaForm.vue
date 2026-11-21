@@ -4,7 +4,7 @@
 </script>
 
 <template>
-  <div class="grid gap-3">
+  <div class="grid gap-2">
     <div class="grid gap-1.5">
       <label
         for="bookTitle"

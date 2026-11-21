@@ -32,16 +32,18 @@ export default defineConfig({
     "btn-disable": ["cursor-not-allowed opacity-60"],
     "studio-shell": "min-h-full text-studio-text bg-studio-bg",
     "studio-panel":
-      "bg-[var(--panel)] border border-studio-line rounded-[20px] overflow-hidden shadow-[0_26px_60px_-50px_rgba(21,34,56,0.4)]",
+      "bg-[var(--panel)] border border-studio-line rounded-[16px] overflow-hidden shadow-[0_18px_44px_-40px_rgba(21,34,56,0.42)]",
     "studio-input":
-      "w-full h-[42px] px-3 rounded-[11px] border border-studio-line bg-[var(--panel-muted)] text-studio-text text-[13px] outline-none transition-[border-color,box-shadow] duration-150 focus:border-studio-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]",
+      "w-full h-[40px] px-3 rounded-[10px] border border-studio-line bg-[var(--panel-muted)] text-studio-text text-[13px] outline-none transition-[border-color,box-shadow] duration-150 focus:border-studio-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]",
+    "studio-textarea":
+      "w-full min-h-[168px] px-3 py-2 rounded-[11px] border border-studio-line bg-[var(--panel-muted)] text-studio-text text-[12px] leading-[1.7] font-mono outline-none resize-y transition-[border-color,box-shadow] duration-150 focus:border-studio-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]",
     "studio-label": "text-[12px] font-600 text-studio-muted",
     "studio-note": "m-0 text-[11px] leading-[1.5] text-studio-muted",
     "studio-panel-head":
       "flex justify-between items-center gap-3 px-5 py-4 border-b border-studio-line",
     "studio-panel-body": "overflow-auto p-5 min-h-[320px] md:min-h-[430px]",
     "studio-empty-shell":
-      "min-h-[420px] border border-dashed border-studio-line rounded-[24px] grid place-content-center text-center gap-2 text-studio-muted bg-[var(--panel)]",
+      "min-h-[340px] border border-dashed border-studio-line rounded-[18px] grid place-content-center text-center gap-2 text-studio-muted bg-[var(--panel)]",
   },
   presets: [
     presetMini({

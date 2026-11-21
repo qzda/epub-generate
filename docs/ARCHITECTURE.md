@@ -29,7 +29,7 @@ src/
 ├─ domain/
 │  ├─ result.ts          # Result、AppError、DomainError
 │  ├─ book.ts            # 书籍元数据、文件名清洗
-│  ├─ chapter.ts         # 正则编译、流式分章器
+│  ├─ chapter.ts         # 多级正则编译、层级归一化、流式分章器
 │  ├─ encoding.ts        # 编码列表、别名、可用性
 │  ├─ comic.ts           # 图片识别、自然序、MIME
 │  └─ epub/
@@ -73,18 +73,20 @@ src/
 1. `App.vue` 校验扩展名/类型和 50 MB 上限。
 2. `detectTextEncoding` 读取前 64 KB，用 chardet 检测并归一化；失败回退 UTF-8 并返回 `fallback`。
 3. `useTextSource` 监听文件、编码、正则变化，250ms 防抖后取消旧扫描。
-4. `scanTextSource` 流式读取全文，一次返回：
+4. `compileChapterPatterns` 把多行正则编译为 1–3 级匹配器；空行忽略，超过 3 行报错。
+5. `scanTextSource` 流式读取全文，一次返回：
    - 前 200 行预览
-   - 完整 `ChapterRef[]`
+   - 完整 `ChapterRef[]`（含 `level`）
    - 总行数
-   - 正则匹配数
-5. `TextWorkspace` 只负责展示；目录与预览来自同一次扫描。
+   - 标题匹配数
+6. 分章结束时归一化层级：去掉缺失的中间层、把同层标题保持为兄弟节点；如果全书只有二级标题，会整体提升为一级。
+7. `TextWorkspace` 只负责展示；目录与预览来自同一次扫描，目录按 `level` 缩进。
 
 ### 导出
 
-1. `compileChapterPattern` 编译正则。
-2. `readTextChapters` 再流式读取全文，保留章节正文，并按已处理行数回调进度。
-3. `buildTextEpub` 生成确定性 `EpubEntry[]`。
+1. `compileChapterPatterns` 编译多级正则。
+2. `readTextChapters` 再流式读取全文，保留章节正文和层级，并按已处理行数回调进度。
+3. `buildTextEpub` 用 `buildTocItems` 把扁平章节转成嵌套目录，再生成确定性 `EpubEntry[]`。
 4. `packEpub` 用 fflate 打包为 Blob。
 5. `downloadBlob` 触发下载并释放对象 URL。
 
@@ -117,13 +119,16 @@ src/
 - `buildTextEpub` / `buildComicEpub` 接收注入的 `identifier` 和 `modifiedAt`，不在领域层生成随机值或时间。
 - 所有用户文本都经过 `escapeXml`。
 - 固定文件顺序：`mimetype` → `container.xml` → `content.opf` → `nav.xhtml` → `toc.ncx` → `style.css` → 章节/页面。
+- `nav.xhtml` 按标题层级输出嵌套 `<ol>`；`toc.ncx` 输出嵌套 `<navPoint>`，`playOrder` 按文档顺序连续递增，`dtb:depth` 取实际最大层级。
+- spine 与 manifest 仍按扁平章节顺序排列，卷/部也会生成独立页面。
 - `mimetype` 使用 `STORE`；ZIP 内 mtime 固定为本地时间 1980-01-01。
 - `packEpub` 使用非流式 fflate API，确保 mimetype 本地文件头包含真实大小且无 data descriptor。
 
 ## 8. UI 组合
 
 - 单页工作台：顶栏 + Hero + 左设置卡 + 右预览卡。
-- 文本主卡支持“预览 / 目录”切换和章节 chips。
+- 文本主卡支持“预览 / 目录”切换；目录按层级缩进，chips 只展示一级标题。
+- 主卡高度受视口约束，预览与目录在卡片内部滚动，页面不随正文长度增长。
 - 漫画主卡为响应式卡片网格。
 - 消息组件固定在顶部居中，使用 `aria-live`。
 - 颜色通过 CSS 变量控制，跟随系统 `prefers-color-scheme`。
@@ -133,7 +138,7 @@ src/
 - Vitest（Node 环境），覆盖 `src/domain/**` 与 `src/services/**`。
 - domain 按文件要求覆盖率 ≥ 90%；services 保持重点路径覆盖并纳入全局阈值。
 - 测试重点：
-  - 分章、编码别名、漫画排序、EPUB 文档与 OPF
+  - 多级分章、层级归一化、嵌套 nav/ncx、编码别名、漫画排序、EPUB 文档与 OPF
   - 分块行读取、BOM、CRLF/CR、取消
   - ZIP 签名、预览清理、mimetype 头、固定 mtime
   - 导出读取进度

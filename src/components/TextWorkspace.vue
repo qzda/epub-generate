@@ -1,6 +1,9 @@
 <script setup lang="ts">
   import { computed, ref } from "vue";
-  import { PREAMBLE_TITLE } from "../domain/chapter";
+  import {
+    PREAMBLE_TITLE,
+    normalizeChapterLevels,
+  } from "../domain/chapter";
   import type { ChapterRef } from "../domain/chapter";
   import type { AppError } from "../domain/result";
 
@@ -23,6 +26,22 @@
           .filter((chapter) => chapter.title !== PREAMBLE_TITLE)
           .map((chapter) => chapter.startLine)
       )
+  );
+
+  const tocRows = computed(() => {
+    const levels = normalizeChapterLevels(
+      props.chapters.map((chapter) => chapter.level)
+    );
+
+    return props.chapters.map((chapter, index) => ({
+      ...chapter,
+      level: levels[index] ?? 1,
+      number: index + 1,
+    }));
+  });
+
+  const topLevelRows = computed(() =>
+    tocRows.value.filter((row) => row.level === 1)
   );
 </script>
 
@@ -56,13 +75,13 @@
       class="toc-strip"
     >
       <button
-        v-for="(chapter, index) in chapters"
-        :key="`${chapter.startLine}-${index}`"
+        v-for="row in topLevelRows"
+        :key="`${row.startLine}-${row.number}`"
         type="button"
         @click="activeView = 'toc'"
       >
-        <b>{{ String(index + 1).padStart(2, "0") }}</b>
-        {{ chapter.title }}
+        <b>{{ String(row.number).padStart(2, "0") }}</b>
+        {{ row.title }}
       </button>
     </div>
 
@@ -91,7 +110,7 @@
         <template v-else>
           <h3 class="book-title">{{ bookTitle || "未命名书籍" }}</h3>
           <p class="book-meta">
-            {{ bookAuthor || "未知作者" }} · {{ chapters.length }} 篇 · EPUB 3
+            {{ bookAuthor || "未知作者" }} · {{ chapters.length }} 个目录项 · EPUB 3
           </p>
           <p
             v-for="(line, index) in previewLines"
@@ -119,13 +138,14 @@
           class="toc-list"
         >
           <li
-            v-for="(chapter, index) in chapters"
-            :key="`${chapter.startLine}-${index}`"
+            v-for="row in tocRows"
+            :key="`${row.startLine}-${row.number}`"
+            :class="`toc-level-${row.level}`"
           >
-            <span>{{ String(index + 1).padStart(2, "0") }}</span>
+            <span>{{ String(row.number).padStart(2, "0") }}</span>
             <div>
-              <b>{{ chapter.title }}</b>
-              <small>从第 {{ chapter.startLine + 1 }} 行开始</small>
+              <b>{{ row.title }}</b>
+              <small>从第 {{ row.startLine + 1 }} 行开始</small>
             </div>
           </li>
         </ol>
@@ -136,17 +156,18 @@
 
 <style scoped>
   .main-card {
-    display: grid;
-    grid-template-rows: auto auto 1fr;
-    min-height: 700px;
+    display: flex;
+    flex-direction: column;
+    height: clamp(480px, calc(100dvh - 350px), 840px);
   }
 
   .main-head {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
-    padding: 17px 20px 13px;
+    padding: 12px 16px 10px;
   }
 
   .main-head h2 {
@@ -188,10 +209,11 @@
   }
 
   .toc-strip {
+    flex: 0 0 auto;
     display: flex;
-    gap: 8px;
+    gap: 6px;
     overflow-x: auto;
-    padding: 0 20px 14px;
+    padding: 0 16px 10px;
     scrollbar-width: none;
   }
 
@@ -224,8 +246,12 @@
   }
 
   .preview-body {
-    overflow: auto;
-    padding: 8px 26px 28px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 4px 18px 20px;
     border-top: 1px solid var(--border);
     background:
       linear-gradient(
@@ -239,13 +265,13 @@
   }
 
   .book-title {
-    margin: 24px 0 4px;
-    font-size: 25px;
+    margin: 14px 0 3px;
+    font-size: 23px;
     letter-spacing: -0.01em;
   }
 
   .book-meta {
-    margin: 0 0 24px;
+    margin: 0 0 16px;
     color: var(--muted);
     font-size: 12px;
   }
@@ -254,27 +280,27 @@
     margin: 0;
     color: var(--foreground);
     font-size: 13.5px;
-    line-height: 2;
+    line-height: 1.9;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
   .line-heading {
-    margin-top: 18px;
+    margin-top: 14px;
     color: var(--accent);
-    font-size: 15px;
+    font-size: 14.5px;
     font-weight: 800;
     line-height: 1.6;
   }
 
   .line-blank {
-    height: 12px;
+    height: 10px;
   }
 
   .empty-state {
     display: grid;
     place-items: center;
-    min-height: 320px;
+    min-height: 280px;
     margin: 0;
     color: var(--muted);
     font-size: 13px;
@@ -286,7 +312,7 @@
   }
 
   .toc-list {
-    margin: 8px 0 0;
+    margin: 4px 0 0;
     padding: 0;
     list-style: none;
   }
@@ -296,12 +322,20 @@
     grid-template-columns: 34px 1fr;
     gap: 8px;
     align-items: start;
-    padding: 14px 0;
+    padding: 10px 0;
     border-bottom: 1px solid var(--border);
   }
 
   .toc-list li:last-child {
     border-bottom: 0;
+  }
+
+  .toc-list li.toc-level-2 {
+    padding-left: 20px;
+  }
+
+  .toc-list li.toc-level-3 {
+    padding-left: 40px;
   }
 
   .toc-list li > span {
@@ -322,5 +356,11 @@
     margin-top: 4px;
     color: var(--muted);
     font-size: 11px;
+  }
+
+  @media (max-width: 960px) {
+    .main-card {
+      height: clamp(360px, calc(100dvh - 470px), 700px);
+    }
   }
 </style>

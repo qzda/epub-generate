@@ -26,9 +26,9 @@ describe("scanTextSource", () => {
     expect(result.totalLines).toBe(7);
     expect(result.matchedCount).toBe(2);
     expect(result.chapterRefs).toEqual([
-      { title: "前言", startLine: 0 },
-      { title: "第1章 开始", startLine: 1 },
-      { title: "第2章 结束", startLine: 5 },
+      { title: "前言", startLine: 0, level: 1 },
+      { title: "第1章 开始", startLine: 1, level: 1 },
+      { title: "第2章 结束", startLine: 5, level: 1 },
     ]);
   });
 
@@ -93,6 +93,16 @@ describe("readTextChapters", () => {
     expect(chapters).toEqual(expected);
     expect(chapters).toHaveLength(3);
     expect(chapters[1].paragraphs).toEqual(["正文一", "正文二"]);
+  });
+
+  it("支持多级标题正则", async () => {
+    const chapters = await readTextChapters(
+      blobOf(["第一部", "第一章", "正文", "第一节", "细节"].join("\n")),
+      "utf-8",
+      [/^第.+部$/, /^第.+章$/, /^第.+节$/]
+    );
+
+    expect(chapters.map((chapter) => chapter.level)).toEqual([1, 2, 3]);
   });
 
   it("按已处理行数报告进度", async () => {

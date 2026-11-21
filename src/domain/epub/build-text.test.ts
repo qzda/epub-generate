@@ -104,6 +104,27 @@ describe("buildTextEpub", () => {
     expect(nav).toContain("第二章");
   });
 
+  it("按标题层级生成嵌套目录", () => {
+    const entries = buildTextEpub({
+      ...baseInput,
+      chapters: [
+        { title: "第一部", paragraphs: ["部导语"], level: 1 },
+        { title: "第一章", paragraphs: ["正文"], level: 2 },
+        { title: "第一节", paragraphs: [], level: 3 },
+        { title: "第二部", paragraphs: [], level: 1 },
+      ],
+    });
+    const opf = textOf(entries.find((entry) => entry.path === "OEBPS/content.opf")!.data);
+    const nav = textOf(entries.find((entry) => entry.path === "OEBPS/nav.xhtml")!.data);
+    const ncx = textOf(entries.find((entry) => entry.path === "OEBPS/toc.ncx")!.data);
+
+    expect(opf.match(/<itemref idref="chapter\d"\/>/g)).toHaveLength(4);
+    expect(nav).toContain("第一部</a>\n      <ol>");
+    expect(nav).toContain("第一章</a>\n        <ol>");
+    expect(ncx).toContain('<meta name="dtb:depth" content="3"/>');
+    expect(ncx).toContain('id="navPoint3" playOrder="3"');
+  });
+
   it("转义书籍信息和章节内容", () => {
     const entries = buildTextEpub({
       ...baseInput,

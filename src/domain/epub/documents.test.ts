@@ -39,6 +39,40 @@ describe("buildNavDocument", () => {
     expect(document).toContain("&lt;script&gt;");
     expect(document).not.toContain("<script>");
   });
+
+  it("按层级嵌套 ol", () => {
+    const document = buildNavDocument({
+      title: "我的书",
+      language: "zh",
+      items: [
+        {
+          href: "part0.xhtml",
+          label: "第一部",
+          children: [
+            {
+              href: "chapter1.xhtml",
+              label: "第一章",
+              children: [
+                { href: "section2.xhtml", label: "第一节" },
+              ],
+            },
+          ],
+        },
+        { href: "part3.xhtml", label: "第二部" },
+      ],
+    });
+
+    expect(document).toContain("第一部</a>\n      <ol>");
+    expect(document).toContain("第一章</a>\n        <ol>");
+    expect(document.indexOf("第一部")).toBeLessThan(
+      document.indexOf("第一章")
+    );
+    expect(document.indexOf("第一节")).toBeLessThan(
+      document.indexOf("第二部")
+    );
+    expect(document.match(/<ol>/g)).toHaveLength(3);
+    expect(document.match(/<\/ol>/g)).toHaveLength(3);
+  });
 });
 
 describe("buildNcxDocument", () => {
@@ -70,6 +104,39 @@ describe("buildNcxDocument", () => {
     expect(document).toContain('content="id&quot;1"');
     expect(document).toContain("&lt;第一章&gt;");
     expect(document).toContain('src="a&amp;b.xhtml"');
+  });
+
+  it("按层级嵌套 navPoint 并计算深度", () => {
+    const document = buildNcxDocument({
+      title: "我的书",
+      identifier: "urn:uuid:123",
+      items: [
+        {
+          href: "part0.xhtml",
+          label: "第一部",
+          children: [
+            {
+              href: "chapter1.xhtml",
+              label: "第一章",
+              children: [
+                { href: "section2.xhtml", label: "第一节" },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(document).toContain('<meta name="dtb:depth" content="3"/>');
+    expect(document).toContain('id="navPoint1" playOrder="1"');
+    expect(document).toContain('id="navPoint2" playOrder="2"');
+    expect(document).toContain('id="navPoint3" playOrder="3"');
+    expect(document.indexOf("第一部")).toBeLessThan(
+      document.indexOf("第一章")
+    );
+    expect(document.indexOf("第一章")).toBeLessThan(
+      document.indexOf("第一节")
+    );
   });
 });
 
@@ -148,6 +215,54 @@ describe("buildTocItems", () => {
     ).toEqual([
       { href: "p0.xhtml", label: "一" },
       { href: "p1.xhtml", label: "二" },
+    ]);
+  });
+
+  it("按层级生成嵌套目录", () => {
+    expect(
+      buildTocItems(
+        [
+          { title: "第一部", level: 1 },
+          { title: "第一章", level: 2 },
+          { title: "第一节", level: 3 },
+          { title: "第二节", level: 3 },
+          { title: "第二章", level: 2 },
+          { title: "第二部", level: 1 },
+        ],
+        (index) => `p${index}.xhtml`
+      )
+    ).toEqual([
+      {
+        href: "p0.xhtml",
+        label: "第一部",
+        children: [
+          {
+            href: "p1.xhtml",
+            label: "第一章",
+            children: [
+              { href: "p2.xhtml", label: "第一节" },
+              { href: "p3.xhtml", label: "第二节" },
+            ],
+          },
+          { href: "p4.xhtml", label: "第二章" },
+        ],
+      },
+      { href: "p5.xhtml", label: "第二部" },
+    ]);
+  });
+
+  it("没有外层标题时整体提升", () => {
+    expect(
+      buildTocItems(
+        [
+          { title: "第一章", level: 2 },
+          { title: "第二章", level: 2 },
+        ],
+        (index) => `p${index}.xhtml`
+      )
+    ).toEqual([
+      { href: "p0.xhtml", label: "第一章" },
+      { href: "p1.xhtml", label: "第二章" },
     ]);
   });
 });

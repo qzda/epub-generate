@@ -1,7 +1,7 @@
 import { watchDebounced } from "@vueuse/core";
 import { onScopeDispose, ref, toValue } from "vue";
 import type { MaybeRefOrGetter } from "vue";
-import { compileChapterPattern } from "../domain/chapter";
+import { compileChapterPatterns } from "../domain/chapter";
 import type { ChapterRef } from "../domain/chapter";
 import type { TextEncoding } from "../domain/encoding";
 import type { AppError } from "../domain/result";
@@ -49,7 +49,7 @@ export function useTextSource(
       return;
     }
 
-    const compiled = compileChapterPattern(toValue(pattern));
+    const compiled = compileChapterPatterns(toValue(pattern));
     if (!compiled.ok) {
       error.value = compiled.error;
       chapterRefs.value = [];

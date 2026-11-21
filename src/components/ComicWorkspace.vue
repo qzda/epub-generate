@@ -65,17 +65,18 @@
 
 <style scoped>
   .comic-card {
-    display: grid;
-    grid-template-rows: auto 1fr;
-    min-height: 700px;
+    display: flex;
+    flex-direction: column;
+    height: clamp(480px, calc(100dvh - 350px), 840px);
   }
 
   .main-head {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
-    padding: 17px 20px 15px;
+    padding: 12px 16px 10px;
     border-bottom: 1px solid var(--border);
   }
 
@@ -91,7 +92,12 @@
   }
 
   .comic-body {
-    padding: 20px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 14px;
     background:
       linear-gradient(
         90deg,
@@ -106,7 +112,7 @@
   .comic-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
   }
 
   @media (min-width: 640px) {
@@ -133,7 +139,7 @@
   img {
     display: block;
     width: 100%;
-    height: 168px;
+    height: 148px;
     object-fit: cover;
     background: var(--panel-muted);
   }
@@ -166,7 +172,7 @@
   .comic-empty {
     display: grid;
     place-items: center;
-    min-height: 420px;
+    min-height: 280px;
     margin: 0;
     color: var(--muted);
     font-size: 13px;
@@ -175,5 +181,11 @@
 
   .comic-empty.error {
     color: #dc2626;
+  }
+
+  @media (max-width: 960px) {
+    .comic-card {
+      height: clamp(360px, calc(100dvh - 470px), 700px);
+    }
   }
 </style>

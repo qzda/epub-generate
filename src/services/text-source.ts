@@ -1,5 +1,9 @@
 import { createChapterSplitter } from "../domain/chapter";
-import type { Chapter, ChapterRef } from "../domain/chapter";
+import type {
+  Chapter,
+  ChapterPatternInput,
+  ChapterRef,
+} from "../domain/chapter";
 import type { TextEncoding } from "../domain/encoding";
 import { TEXT_PREVIEW_LINE_COUNT } from "../config/limits";
 import { readFileLines } from "./line-reader";
@@ -28,14 +32,14 @@ export interface ReadTextChaptersOptions extends ReadFileLinesOptions {
 export async function scanTextSource(
   blob: Blob,
   encoding: TextEncoding,
-  regex: RegExp,
+  patterns: ChapterPatternInput,
   options: ScanTextSourceOptions = {}
 ): Promise<TextSourceScan> {
   const previewLimit = Math.max(
     0,
     options.previewLineCount ?? TEXT_PREVIEW_LINE_COUNT
   );
-  const splitter = createChapterSplitter(regex, { keepContent: false });
+  const splitter = createChapterSplitter(patterns, { keepContent: false });
   const previewLines: string[] = [];
 
   for await (const line of readFileLines(blob, encoding, options)) {
@@ -59,11 +63,11 @@ export async function scanTextSource(
 export async function readTextChapters(
   blob: Blob,
   encoding: TextEncoding,
-  regex: RegExp,
+  patterns: ChapterPatternInput,
   options: ReadTextChaptersOptions = {}
 ): Promise<Chapter[]> {
   const { onProgress, ...readOptions } = options;
-  const splitter = createChapterSplitter(regex, { keepContent: true });
+  const splitter = createChapterSplitter(patterns, { keepContent: true });
   let processedLines = 0;
   let lastReported = 0;
 

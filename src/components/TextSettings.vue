@@ -30,7 +30,7 @@
 </script>
 
 <template>
-  <div class="grid gap-3">
+  <div class="grid gap-2">
     <div class="grid gap-1.5">
       <label
         for="textEncoding"
@@ -69,14 +69,14 @@
         for="chapterPattern"
         class="studio-label"
       >
-        章节正则
+        章节正则（最多 3 级）
       </label>
-      <input
+      <textarea
         id="chapterPattern"
         v-model="pattern"
-        class="studio-input font-mono"
-        type="text"
-        placeholder="例如：^\s*第\d+章"
+        class="studio-textarea"
+        rows="8"
+        placeholder="每行一条正则：一级 卷/部，二级 章，三级 节"
         spellcheck="false"
         autocomplete="off"
       />
@@ -87,16 +87,18 @@
       >
         {{ error.message }}
       </p>
-      <p
-        v-else
-        class="studio-note"
-      >
-        <template v-if="isDetectingEncoding">正在检测编码…</template>
-        <template v-else-if="isScanning">正在扫描全文…</template>
-        <template v-else>
-          匹配到 {{ chapterCount }} 个章节 · 共 {{ totalLines }} 行
-        </template>
-      </p>
+      <template v-else>
+        <p class="studio-note">
+          每行一条正则，从一级到三级。只有章时仍会作为一级标题。
+        </p>
+        <p class="studio-note">
+          <template v-if="isDetectingEncoding">正在检测编码…</template>
+          <template v-else-if="isScanning">正在扫描全文…</template>
+          <template v-else>
+            匹配到 {{ chapterCount }} 个标题 · 共 {{ totalLines }} 行
+          </template>
+        </p>
+      </template>
     </div>
   </div>
 </template>

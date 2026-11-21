@@ -1,6 +1,6 @@
 # Epub Generate 重写计划
 
-> 状态：阶段 1–5 全部完成
+> 状态：阶段 1–5 完成，多级目录增强已完成
 > 最后更新：2026-11-20
 > 关联文档：[AGENTS.md](../AGENTS.md)
 
@@ -250,10 +250,10 @@ App.vue
 | 文件 | 覆盖点 |
 | --- | --- |
 | `xml.test.ts` | 五个 XML 字符、`&` 优先转义、无双重转义 |
-| `chapter.test.ts` | 合法/非法/空正则、前言、连续标题、空白行、零匹配单章、标题 trim、捕获组 |
+| `chapter.test.ts` | 合法/非法/空正则、多行多级正则、层级归一化/跳级/提升、前言、连续标题、空白行、零匹配单章、标题 trim、捕获组 |
 | `encoding.test.ts` | 全部别名、大小写/空格、未知编码、`TextDecoder` 可用性 |
 | `comic.test.ts` | 扩展名过滤、目录过滤、`1/2/10` 自然序、同名不同目录、大小写 |
-| `documents.test.ts` | nav/ncx/xhtml 结构、href 对应、元数据转义 |
+| `documents.test.ts` | nav/ncx/xhtml 结构、嵌套目录、`dtb:depth`、href 对应、元数据转义 |
 | `package.test.ts` | opf manifest 数量/spine 顺序、漫画 `rendition`、language |
 | `build-text.test.ts` | mimetype 第一且 STORE、必需路径、章节数量、单章回退、确定性 |
 | `build-comic.test.ts` | 图片/页面/清单一致、MIME 类型、空图片输入报错 |
@@ -306,12 +306,19 @@ App.vue
   - 退出标准：`pnpm check && pnpm build` 通过，浏览器验证完成。
   - 完成情况：README 补充功能、支持范围、命令与 EPUB 结构；新增架构文档；AGENTS 补充文档维护要求；最终检查与构建通过，Playwright 原生 WebM 录屏验证已完成。
 
+- [x] **阶段 6：多级目录**
+  - 支持最多 3 行标题正则，按 1/2/3 级识别卷/部、章、节。
+  - 层级归一化：缺失外层时整体提升，跳级时压到下一级，同层标题保持兄弟节点。
+  - `nav.xhtml` 与 `toc.ncx` 输出嵌套目录，并写入正确的 `dtb:depth`。
+  - 完成情况：默认正则覆盖卷/部、章/回、节及常见前后记；用 755 KB 的三级标题样本验证 284 个标题、5 个一级（含前言）、40 个二级、240 个三级。
+
 ## 12. 验收标准
 
 - [x] `pnpm check` 全绿，`pnpm build` 成功。
 - [x] UTF-8 TXT、GBK TXT、无章节短篇、多图片 ZIP 均能生成可打开且目录正确的 EPUB。
 - [x] `mimetype` 是 ZIP 第一个文件，未压缩，无 extra field。
 - [x] 文本 EPUB 的目录数量、章节正文与预览一致。
+- [x] 三级目录在预览、`nav.xhtml` 与 `toc.ncx` 中保持一致的嵌套层级。
 - [x] 漫画 EPUB 图片顺序与预览一致，MIME 类型正确。
 - [x] 非法正则、超限文件、空 ZIP、非图片 ZIP、未知编码均有明确提示。
 - [x] 快速切换文件或修改正则不会出现旧结果回写。
@@ -320,7 +327,7 @@ App.vue
 ## 13. 非目标
 
 - 封面图。
-- 多级目录、卷/分册。
+- 超过三级的目录层级。
 - Markdown 语法渲染。
 - Web Worker 打包（保留后续优化空间）。
 - 出版社、出版日期等额外元数据。
@@ -337,6 +344,7 @@ App.vue
 | 2026-11-20 | UI 重构 | 选定方案 B「卡片工作台」；重做顶栏、Hero、左设置卡与右预览卡；文本预览增加「预览 / 目录」切换和章节 chips；漫画预览改为卡片网格；更新主题色与 UnoCSS 快捷类；保留顶部居中消息组件；补齐 Hero 与拖拽区间距，支持系统暗色模式 | `pnpm check`、`pnpm build` 通过；Playwright 验证桌面/移动空状态、文本预览、目录切换、漫画预览与导出；浅色/暗色截图保存在 `.playwright-mcp/2026-11-20T13-20/` 与 `.playwright-mcp/2026-11-20T13-44/` |
 | 2026-11-20 | 阶段 4 | 新增拖拽覆盖提示、`readTextChapters` 读取行数进度、文件大小 B/KB/MB 格式化；补充进度单元测试；完成验收场景：超限、PDF、空 ZIP、无图片 ZIP、快速切换、进度、短篇单章、导出结构 | `pnpm check`、`pnpm build` 通过；19 文件 150 用例全绿；Playwright 截图/EPUB/快照/日志保存在 `.playwright-mcp/2026-11-20T14-13/` |
 | 2026-11-20 | 阶段 5 | 重写 README（功能、支持范围、命令、EPUB 结构、部署）；新增 `docs/ARCHITECTURE.md`（分层、数据流、错误模型、取消、确定性、测试）；AGENTS 补充文档维护要求；最终检查与构建 | `pnpm check`、`pnpm build` 通过；Playwright 原生 WebM 录屏与文本/漫画导出验证保存在 `.playwright-mcp/2026-11-20T14-58/` |
+| 2026-11-21 | 阶段 6 | 新增多行多级标题正则、层级归一化、嵌套 nav/ncx、目录缩进与一级 chips；默认正则覆盖部/卷/篇、章/回、节及常见前后记 | `pnpm check`、`pnpm build` 通过；19 文件 173 用例全绿；755 KB 三级标题样本识别 284 个标题；浏览器验证保存在 `.playwright-mcp/2026-11-21T20-59/` 与 `.playwright-mcp/2026-11-21T21-00/`；预览内部滚动与紧凑留白验证保存在 `.playwright-mcp/2026-11-21T21-02/` |
 
 ## 15. 维护约定
 

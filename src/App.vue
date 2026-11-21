@@ -13,7 +13,7 @@
   import { useMessages } from "./composables/useMessages";
   import { useTextSource } from "./composables/useTextSource";
   import { createBookMeta, sanitizeEpubFileName } from "./domain/book";
-  import { compileChapterPattern } from "./domain/chapter";
+  import { compileChapterPatterns } from "./domain/chapter";
   import { DEFAULT_ENCODING } from "./domain/encoding";
   import type { TextEncoding } from "./domain/encoding";
   import { buildComicEpub } from "./domain/epub/build-comic";
@@ -26,8 +26,11 @@
   import { packEpub } from "./services/epub-pack";
   import { readTextChapters } from "./services/text-source";
 
-  const DEFAULT_PATTERN =
-    "^\\s*第[0-9一二三四五六七八九十百千万]+章(?:\\s|$)";
+  const DEFAULT_PATTERN = [
+    "^\\s*(?:第[0-9零一二三四五六七八九十百千万两]+[部卷篇]|序言|序章|前言|楔子|后记|尾声|附录|番外|终章)(?:\\s|$)",
+    "^\\s*第[0-9零一二三四五六七八九十百千万两]+[章回](?:\\s|$)",
+    "^\\s*第[0-9零一二三四五六七八九十百千万两]+[节](?:\\s|$)",
+  ].join("\n");
   const MAX_FILE_LABEL = "50 MB";
 
   const file = shallowRef<File>();
@@ -303,7 +306,7 @@
 
     const summary = await run(async (report, signal) => {
       if (currentMode === "text") {
-        const compiled = compileChapterPattern(currentPattern);
+        const compiled = compileChapterPatterns(currentPattern);
         if (!compiled.ok) {
           throw new DomainError(compiled.error.code, compiled.error.message);
         }
@@ -341,7 +344,7 @@
 
         report("done", 1);
         downloadBlob(blob, fileName);
-        return `文本 EPUB 生成成功，共 ${chapters.length} 章。`;
+        return `文本 EPUB 生成成功，共 ${chapters.length} 个目录项。`;
       }
 
       if (currentImages.length === 0) {
@@ -550,7 +553,7 @@
 <style scoped>
   .studio-page {
     min-height: 100dvh;
-    padding: 78px 30px 28px;
+    padding: 60px 20px 14px;
     color: var(--foreground);
     background:
       radial-gradient(900px 500px at 85% -10%, rgba(125, 166, 255, 0.22), transparent 60%),
@@ -568,7 +571,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 18px;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     padding: 0 2px;
   }
 
@@ -628,11 +631,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 30px;
+    gap: 20px;
     overflow: hidden;
-    padding: 28px 32px;
+    padding: 20px 24px;
     border: 1px solid rgba(214, 225, 242, 0.9);
-    border-radius: 24px;
+    border-radius: 20px;
     background: linear-gradient(
       120deg,
       rgba(255, 255, 255, 0.96),
@@ -659,7 +662,7 @@
   }
 
   .eyebrow {
-    margin: 0 0 8px;
+    margin: 0 0 6px;
     color: var(--accent);
     font-size: 10px;
     font-weight: 700;
@@ -669,17 +672,17 @@
 
   .hero h1 {
     margin: 0;
-    font-size: clamp(28px, 3vw, 38px);
+    font-size: clamp(26px, 2.6vw, 34px);
     line-height: 1.15;
     letter-spacing: -0.02em;
   }
 
   .hero-description {
     max-width: 55ch;
-    margin: 10px 0 0;
+    margin: 8px 0 0;
     color: var(--muted);
     font-size: 13px;
-    line-height: 1.7;
+    line-height: 1.6;
   }
 
   .hero-actions {
@@ -687,26 +690,26 @@
     z-index: 1;
     display: flex;
     flex: 0 0 auto;
-    gap: 10px;
+    gap: 8px;
   }
 
   .workspace {
     display: grid;
-    grid-template-columns: 340px minmax(0, 1fr);
+    grid-template-columns: 320px minmax(0, 1fr);
     align-items: start;
-    gap: 20px;
-    margin-top: 20px;
+    gap: 16px;
+    margin-top: 14px;
   }
 
   .settings-card {
-    padding: 20px;
+    padding: 16px;
   }
 
   .file-chip {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 13px 14px;
+    gap: 10px;
+    padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 14px;
     background: linear-gradient(180deg, #f8fbff, #f3f7ff);
@@ -714,11 +717,11 @@
 
   .file-icon {
     display: grid;
-    flex: 0 0 38px;
+    flex: 0 0 34px;
     place-items: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 11px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
     background: var(--accent-soft);
     color: var(--accent);
   }
@@ -740,7 +743,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 22px 0 12px;
+    margin: 14px 0 8px;
     color: #8b9ab2;
     font-size: 11px;
     font-weight: 800;
@@ -759,8 +762,8 @@
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    margin-top: 18px;
-    padding: 0 4px;
+    margin-top: 8px;
+    padding: 0 2px;
     color: var(--muted);
     font-size: 11px;
   }
@@ -882,7 +885,7 @@
 
   @media (max-width: 480px) {
     .hero h1 {
-      font-size: 24px;
+      font-size: 22px;
     }
 
     .hero-description {
@@ -892,7 +895,7 @@
 
   @media (max-width: 960px) {
     .studio-page {
-      padding: 74px 18px 24px;
+      padding: 64px 14px 18px;
     }
 
     .status {
@@ -902,7 +905,7 @@
     .hero {
       flex-direction: column;
       align-items: flex-start;
-      padding: 24px;
+      padding: 18px;
     }
 
     .hero-actions {
@@ -918,7 +921,7 @@
     }
 
     .settings-card {
-      padding: 18px;
+      padding: 14px;
     }
   }
 </style>
